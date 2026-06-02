@@ -1,0 +1,8 @@
+{
+  "watch": ["src"],
+  "ext": "js,json",
+  "ignore": ["../frontend/**", "node_modules/**", "data/**"],
+  "execMap": {
+    "js": "node"
+  }
+}
