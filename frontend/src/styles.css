@@ -1,9 +1,79 @@
-body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:0}
-header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:#222;color:#fff}
-header nav a{color:#fff;margin-left:12px;text-decoration:none}
-main{padding:20px}
-.products{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-.product{border:1px solid #ddd;padding:12px;border-radius:6px}
-.error{color:red}
-input{display:block;margin:8px 0;padding:8px;width:100%;max-width:320px}
-button{padding:8px 12px}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  @apply transition-all duration-300;
+}
+
+body {
+  @apply bg-gradient-primary text-slate-200 font-sans;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+  @apply w-2 h-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-900 rounded-full;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-accent rounded-full hover:bg-accent-light;
+}
+
+/* Custom components */
+@layer components {
+  .btn-primary {
+    @apply px-6 py-2 bg-gradient-accent text-white font-semibold rounded-lg shadow-neon hover:shadow-neon-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-2 bg-secondary text-slate-200 font-semibold rounded-lg border border-accent hover:border-accent-light hover:shadow-neon disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-icon {
+    @apply p-2 rounded-lg hover:bg-secondary transition-colors;
+  }
+
+  .card {
+    @apply bg-secondary rounded-xl border border-slate-700 hover:border-accent shadow-lg hover:shadow-neon transition-all;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-2 bg-slate-800 border border-slate-700 text-slate-200 rounded-lg focus:outline-none focus:border-accent focus:shadow-neon placeholder-slate-400;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full;
+  }
+
+  .badge-primary {
+    @apply badge bg-gradient-accent text-white;
+  }
+
+  .badge-success {
+    @apply badge bg-success/20 text-success;
+  }
+
+  .badge-warning {
+    @apply badge bg-warning/20 text-warning;
+  }
+
+  .badge-danger {
+    @apply badge bg-danger/20 text-danger;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-accent bg-clip-text text-transparent;
+  }
+
+  .glow {
+    @apply shadow-neon hover:shadow-neon-lg;
+  }
+}

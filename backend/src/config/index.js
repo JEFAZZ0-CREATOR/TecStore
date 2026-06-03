@@ -1,4 +1,4 @@
-﻿const { PORT = 3001, NODE_ENV = 'development', JWT_SECRET = 'secret', MONGO_URI = 'mongodb://127.0.0.1:27017/virtual-store', STRIPE_SECRET = '' } = process.env;
+﻿const { PORT = 3000, NODE_ENV = 'development', JWT_SECRET = 'secret', MONGO_URI = 'mongodb://127.0.0.1:27017/virtual-store', STRIPE_SECRET = '' } = process.env;
 
 module.exports = {
   PORT: Number(PORT),
