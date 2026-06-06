@@ -1,10 +1,13 @@
 ﻿exports.normalizeProduct = (raw) => ({
   id: raw.id,
   title: raw.title,
+  name: raw.title,
   description: raw.description || raw.title,
   provider: raw.provider,
   image: raw.image || raw.thumbnail || '',
   price: raw.price || 0,
+  originalPrice: raw.originalPrice || null,
+  discount: raw.discount || (raw.originalPrice && raw.price ? Math.round(((raw.originalPrice - raw.price) / raw.originalPrice) * 100) : 0),
   rating: raw.rating || 0,
   available: raw.available ?? true,
   url: raw.url,

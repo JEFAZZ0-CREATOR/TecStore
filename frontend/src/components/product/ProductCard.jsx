@@ -1,11 +1,27 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { FiHeart, FiShoppingCart, FiStar } from 'react-icons/fi'
+import { FiHeart, FiShoppingCart, FiStar, FiExternalLink } from 'react-icons/fi'
 import { GlassCard, Badge } from '../common'
 
 export const ProductCard = ({ product, onAddCart, onToggleFavorite, isFavorite }) => {
   const [isHovered, setIsHovered] = React.useState(false)
+  const externalUrl = product.url && product.url.startsWith('http')
+  const productName = product.name || product.title || 'Producto'
+  const productId = product._id || product.id
+  const hasExternalId = Boolean(productId)
+
+  const ContentWrapper = ({ children }) => (
+    externalUrl ? (
+      <a href={externalUrl} target="_blank" rel="noreferrer" className="relative w-full h-48 bg-slate-800 overflow-hidden">
+        {children}
+      </a>
+    ) : (
+      <Link to={`/products/${productId}`} className="relative w-full h-48 bg-slate-800 overflow-hidden">
+        {children}
+      </Link>
+    )
+  )
 
   return (
     <motion.div
@@ -17,10 +33,11 @@ export const ProductCard = ({ product, onAddCart, onToggleFavorite, isFavorite }
     >
       <GlassCard className="overflow-hidden cursor-pointer h-full flex flex-col">
         {/* Image Container */}
-        <Link to={`/products/${product._id}`} className="relative w-full h-48 bg-slate-800 overflow-hidden">
+        <ContentWrapper>
           <img
             src={product.image || 'https://via.placeholder.com/200x200'}
-            alt={product.name}
+            alt={productName}
+            onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/200x200' }}
             className="w-full h-full object-cover hover:scale-110 transition-transform"
           />
 
@@ -37,36 +54,53 @@ export const ProductCard = ({ product, onAddCart, onToggleFavorite, isFavorite }
             animate={{ opacity: isHovered ? 1 : 0 }}
             className="absolute inset-0 bg-black/60 flex items-center justify-center gap-3"
           >
+            {externalUrl ? (
+              <a
+                href={externalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-primary flex items-center gap-2"
+              >
+                <FiExternalLink /> Ver tienda
+              </a>
+            ) : (
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={(e) => {
+                  e.preventDefault()
+                  onAddCart && onAddCart(product)
+                }}
+                className="btn-primary flex items-center gap-2"
+              >
+                <FiShoppingCart /> Agregar
+              </motion.button>
+            )}
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={(e) => {
                 e.preventDefault()
-                onAddCart(product)
-              }}
-              className="btn-primary flex items-center gap-2"
-            >
-              <FiShoppingCart /> Agregar
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={(e) => {
-                e.preventDefault()
-                onToggleFavorite(product._id)
+                onToggleFavorite && onToggleFavorite(productId)
               }}
               className={`btn-icon ${isFavorite ? 'text-danger' : 'text-white'}`}
             >
               <FiHeart size={20} fill={isFavorite ? 'currentColor' : 'none'} />
             </motion.button>
           </motion.div>
-        </Link>
+        </ContentWrapper>
 
         {/* Content */}
         <div className="flex-1 p-3 flex flex-col justify-between">
           <div>
             <p className="text-xs text-accent mb-1">{product.category}</p>
-            <Link to={`/products/${product._id}`} className="font-semibold hover:text-accent line-clamp-2">
-              {product.name}
-            </Link>
+            {externalUrl ? (
+              <a href={externalUrl} target="_blank" rel="noreferrer" className="font-semibold hover:text-accent line-clamp-2">
+                {productName}
+              </a>
+            ) : (
+              <Link to={`/products/${productId}`} className="font-semibold hover:text-accent line-clamp-2">
+                {productName}
+              </Link>
+            )}
           </div>
 
           {/* Rating */}
@@ -128,15 +162,18 @@ export const ProductGrid = ({ products = [], loading = false, onAddCart, onToggl
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {products.map((product) => (
-        <ProductCard
-          key={product._id}
-          product={product}
-          onAddCart={onAddCart}
-          onToggleFavorite={onToggleFavorite}
-          isFavorite={favorites.includes(product._id)}
-        />
-      ))}
+      {products.map((product) => {
+        const productId = product._id || product.id
+        return (
+          <ProductCard
+            key={productId}
+            product={product}
+            onAddCart={onAddCart}
+            onToggleFavorite={onToggleFavorite}
+            isFavorite={favorites.includes(productId)}
+          />
+        )
+      })}
     </div>
   )
 }

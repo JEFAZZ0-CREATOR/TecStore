@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/store'
 import { GlassCard, Input, Button, LoadingSpinner } from '../components/common'
 
 export default function Profile() {
-  const { user, logout } = useAuthStore()
+  const { user, logout, setUser } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
@@ -15,6 +15,8 @@ export default function Profile() {
     phone: user?.phone || '',
     address: user?.address || '',
   })
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [avatarPreview, setAvatarPreview] = useState(user?.avatarUrl || null)
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -26,9 +28,34 @@ export default function Profile() {
       setLoading(true)
       const result = await usersAPI.updateProfile(formData)
       // Update store with new user data
+      // refresh user in store
+      setUser(result.data)
       setIsEditing(false)
     } catch (error) {
       console.error('Error updating profile:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setAvatarFile(file)
+    setAvatarPreview(URL.createObjectURL(file))
+  }
+
+  const handleUploadAvatar = async () => {
+    if (!avatarFile) return
+    try {
+      setLoading(true)
+      const fd = new FormData()
+      fd.append('avatar', avatarFile)
+      const res = await usersAPI.uploadAvatar(fd)
+      setUser(res.data)
+      setAvatarFile(null)
+    } catch (err) {
+      console.error('Avatar upload failed', err)
     } finally {
       setLoading(false)
     }
@@ -56,13 +83,21 @@ export default function Profile() {
         <div className="flex items-end gap-6 mb-6">
           <div className="relative">
             <img
-              src={`https://ui-avatars.com/api/?name=${user?.name}&background=3b82f6&color=fff&size=120`}
+              src={avatarPreview || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name)}&background=3b82f6&color=fff&size=120`}
               alt={user?.name}
-              className="w-24 h-24 rounded-lg border-4 border-accent"
+              className="w-24 h-24 rounded-lg border-4 border-accent object-cover"
             />
-            <button className="absolute bottom-0 right-0 p-2 bg-accent rounded-full">
-              <FiEdit2 size={16} />
-            </button>
+            <div className="absolute bottom-0 right-0 flex items-center gap-2">
+              <label className="p-2 bg-accent rounded-full cursor-pointer">
+                <input accept="image/*" type="file" onChange={handleAvatarChange} className="hidden" />
+                <FiEdit2 size={16} />
+              </label>
+              {avatarFile && (
+                <button onClick={handleUploadAvatar} className="p-2 bg-accent-dark rounded-full">
+                  <FiSave size={16} />
+                </button>
+              )}
+            </div>
           </div>
           <div>
             <h2 className="text-2xl font-bold">{user?.name}</h2>

@@ -22,6 +22,7 @@ import { Sidebar } from './components/layout/Sidebar'
 
 // Store
 import { useAuthStore } from './store/store'
+import { usersAPI } from './services/api'
 
 // Loading fallback
 const LoadingFallback = () => (
@@ -53,6 +54,20 @@ export default function App() {
       setToken(storedToken)
     }
   }, [token, setToken])
+
+  // When token exists, fetch current user to populate store (including avatar)
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const user = await usersAPI.getCurrentUser()
+        const setUser = useAuthStore.getState().setUser
+        setUser(user)
+      } catch (err) {
+        // ignore
+      }
+    }
+    if (token) fetchUser()
+  }, [token])
 
   return (
     <div className="flex h-screen bg-primary">

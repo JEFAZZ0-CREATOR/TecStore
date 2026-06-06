@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { FiMenu, FiX, FiShoppingCart, FiSearch, FiUser, FiHeart } from 'react-icons/fi'
@@ -8,6 +8,23 @@ export const Header = () => {
   const { sidebarOpen, toggleSidebar, searchOpen, toggleSearch } = useUiStore()
   const { user, logout } = useAuthStore()
   const { itemCount } = useCartStore()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false)
+      }
+    }
+    const handleEsc = (e) => { if (e.key === 'Escape') setMenuOpen(false) }
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('keydown', handleEsc)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [])
 
   return (
     <motion.header
@@ -78,23 +95,37 @@ export const Header = () => {
 
           {/* User Menu */}
           {user ? (
-            <motion.div className="relative group">
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                className="btn-icon flex items-center gap-2"
+            <div className="relative" ref={menuRef}>
+              <button
+                aria-haspopup="true"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen(v => !v)}
+                className="flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-accent rounded"
               >
-                <FiUser size={20} />
+                <img
+                  src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=3b82f6&color=fff&size=64`}
+                  alt={user.name}
+                  className="w-8 h-8 rounded-full object-cover border-2 border-accent"
+                />
                 <span className="hidden sm:inline text-sm">{user.name}</span>
-              </motion.button>
+              </button>
+
               <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                whileHover={{ opacity: 1, y: 0 }}
-                className="absolute right-0 mt-2 w-48 bg-secondary border border-slate-700 rounded-lg shadow-neon opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all"
+                initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                animate={menuOpen ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -8, scale: 0.98 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                className={`absolute right-0 mt-2 w-56 bg-secondary border border-slate-700 rounded-lg shadow-neon transform origin-top-right ${menuOpen ? '' : 'pointer-events-none'}`}
               >
-                <Link to="/profile" className="block px-4 py-2 hover:bg-slate-700 rounded-t-lg">
-                  Mi Perfil
+                <Link to="/profile" onClick={() => setMenuOpen(false)} className="block px-4 py-2 hover:bg-slate-700 rounded-t-lg">
+                  Editar Perfil
                 </Link>
-                <Link to="/orders" className="block px-4 py-2 hover:bg-slate-700">
+                <Link to="/settings" onClick={() => setMenuOpen(false)} className="block px-4 py-2 hover:bg-slate-700">
+                  Ajustes
+                </Link>
+                <Link to="/preferences" onClick={() => setMenuOpen(false)} className="block px-4 py-2 hover:bg-slate-700">
+                  Preferencias
+                </Link>
+                <Link to="/orders" onClick={() => setMenuOpen(false)} className="block px-4 py-2 hover:bg-slate-700">
                   Mis Órdenes
                 </Link>
                 <button
@@ -107,7 +138,7 @@ export const Header = () => {
                   Cerrar Sesión
                 </button>
               </motion.div>
-            </motion.div>
+            </div>
           ) : (
             <Link to="/login" className="btn-primary text-sm">
               Iniciar Sesión

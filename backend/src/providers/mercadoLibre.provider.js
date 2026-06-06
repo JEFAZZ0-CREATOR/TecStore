@@ -12,6 +12,15 @@ class MercadoLibreProvider extends BaseProvider {
       browser = await puppeteer.launch({ headless: true });
       const page = await browser.newPage();
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+      await page.setRequestInterception(true);
+      page.on('request', (req) => {
+        const resourceType = req.resourceType();
+        if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+          req.abort();
+        } else {
+          req.continue();
+        }
+      });
       const url = `https://listado.mercadolibre.com.mx/${encodeURIComponent(query.q)}`;
       await page.goto(url, { waitUntil: 'networkidle2' });
       await page.waitForSelector('li.ui-search-layout__item', { timeout: 10000 });
@@ -20,15 +29,27 @@ class MercadoLibreProvider extends BaseProvider {
         const items = [];
         const elements = document.querySelectorAll('li.ui-search-layout__item');
         elements.forEach((el, index) => {
-          if (index >= 5) return;
+          if (index >= 10) return;
           const titleEl = el.querySelector('.ui-search-item__title');
           const title = titleEl ? titleEl.textContent.trim() : '';
-          const priceEl = el.querySelector('.ui-search-price__second-line .price-tag-fraction');
-          const price = priceEl ? parseFloat(priceEl.textContent.replace(/\./g, '').replace(',', '.')) : null;
-          const imageEl = el.querySelector('.ui-search-result__image img');
-          const image = imageEl ? imageEl.getAttribute('data-src') || imageEl.src : '';
+          const priceWholeEl = el.querySelector('.price-tag-fraction');
+          const priceDecimalEl = el.querySelector('.price-tag-cents');
+          let price = null;
+          if (priceWholeEl) {
+            const whole = priceWholeEl.textContent.replace(/\./g, '').trim();
+            const cents = priceDecimalEl ? priceDecimalEl.textContent.replace(/\./g, '').trim() : '00';
+            price = parseFloat(`${whole}.${cents.padStart(2, '0')}`);
+          }
+          const originalPriceText = el.querySelector('.price-tag-text-sr, .andes-money-amount__fraction')?.textContent || '';
+          let originalPrice = null;
+          if (originalPriceText) {
+            originalPrice = parseFloat(originalPriceText.replace(/[^0-9.,]/g, '').replace(/\./g, '').replace(',', '.'));
+          }
+          const imageEl = el.querySelector('.ui-search-result__image img') || el.querySelector('img');
+          const image = imageEl ? imageEl.getAttribute('data-src') || imageEl.src || imageEl.getAttribute('srcset')?.split(' ')[0] || '' : '';
           const linkEl = el.querySelector('.ui-search-link');
           const link = linkEl ? linkEl.href : '';
+          const discount = originalPrice && price ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
 
           if (title && price) {
             items.push({
@@ -38,9 +59,11 @@ class MercadoLibreProvider extends BaseProvider {
               provider: 'mercadolibre',
               image,
               price,
+              originalPrice,
+              discount,
               rating: null,
               url: link,
-              category: query.category || 'general',
+              category: query.category || 'hardware',
               specs: {}
             });
           }

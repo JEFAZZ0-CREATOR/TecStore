@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { FiSearch, FiFilter, FiX } from 'react-icons/fi'
-import { productsAPI, categoriesAPI } from '../services/api'
+import { searchAPI, categoriesAPI } from '../services/api'
 import { useCartStore, useFiltersStore } from '../store/store'
 import { ProductGrid } from '../components/product/ProductCard'
 import { Input, Button } from '../components/common'
@@ -12,7 +12,8 @@ export default function Store() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [priceRange, setPriceRange] = useState([0, 10000])
+  const [priceRange, setPriceRange] = useState([0, 100000])
+  const defaultQuery = 'hardware pc ofertas'
   const { addItem } = useCartStore()
   const { filters, setFilters, sortBy, setSortBy } = useFiltersStore()
 
@@ -24,14 +25,14 @@ export default function Store() {
   const loadProducts = async () => {
     try {
       setLoading(true)
-      const params = {
-        search: searchTerm,
+      const query = searchTerm || defaultQuery
+      const filtersPayload = {
         minPrice: priceRange[0],
         maxPrice: priceRange[1],
         ...filters,
       }
-      const data = await productsAPI.getAll(params)
-      setProducts(data.products || [])
+      const data = await searchAPI.search(query, filtersPayload)
+      setProducts(data || [])
     } catch (error) {
       console.error('Error loading products:', error)
     } finally {
@@ -140,7 +141,7 @@ export default function Store() {
                 <input
                   type="range"
                   min="0"
-                  max="10000"
+                  max="100000"
                   value={priceRange[1]}
                   onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
                   className="w-full"

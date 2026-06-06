@@ -15,3 +15,17 @@ exports.updateUser = asyncHandler(async (req, res) => {
   const updated = await userService.updateUser(req.user.id, req.body);
   res.json({ success: true, data: updated });
 });
+
+exports.uploadAvatar = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No file uploaded' });
+  }
+
+  // Build a public URL for the uploaded file
+  const host = req.get('host')
+  const protocol = req.protocol
+  const avatarPath = `/uploads/avatars/${req.file.filename}`
+
+  const updated = await userService.updateUser(req.user.id, { avatarUrl: avatarPath });
+  res.json({ success: true, data: updated });
+});

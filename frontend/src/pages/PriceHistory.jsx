@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { FiLineChart, FiTrendingDown, FiCalendar } from 'react-icons/fi'
+import { FiTrendingUp, FiTrendingDown, FiCalendar } from 'react-icons/fi'
 import { priceHistoryAPI } from '../services/api'
 import { GlassCard, LoadingSpinner } from '../components/common'
 import { format, subDays } from 'date-fns'
@@ -44,7 +44,7 @@ export default function PriceHistory() {
         </GlassCard>
         <GlassCard className="p-6">
           <div className="flex items-center gap-3 mb-2">
-            <FiLineChart className="text-warning text-2xl" />
+            <FiTrendingUp className="text-warning text-2xl" />
             <span className="text-sm text-slate-400">Precio Promedio</span>
           </div>
           <p className="text-2xl font-bold text-warning">$1,299.99</p>
@@ -65,9 +65,9 @@ export default function PriceHistory() {
         className="card p-6"
       >
         <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-          <FiLineChart /> Gráfico de Precios
+          <FiTrendingUp /> Gráfico de Precios
         </h2>
-        
+
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <LoadingSpinner size="lg" />

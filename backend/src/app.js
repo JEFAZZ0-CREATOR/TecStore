@@ -25,6 +25,9 @@ app.use(sanitize());
 app.use(xss());
 app.use(rateLimiter);
 app.use(logger);
+const path = require('path')
+// Serve uploaded files (avatars)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/v1', apiRouter);
 app.use('/metrics', require('./monitoring/metrics'));
 app.use(notFoundHandler);

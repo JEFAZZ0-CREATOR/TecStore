@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { FiTrendingUp, FiTag, FiZap, FiPackage } from 'react-icons/fi'
-import { productsAPI } from '../services/api'
+import { FiTrendingUp, FiTag, FiZap, FiPackage, FiSearch } from 'react-icons/fi'
+import { searchAPI } from '../services/api'
 import { useCartStore } from '../store/store'
 import { ProductGrid } from '../components/product/ProductCard'
-import { GlassCard, Button } from '../components/common'
+import { GlassCard, Button, Input } from '../components/common'
 
 const container = {
   hidden: { opacity: 0 },
@@ -22,9 +23,15 @@ const item = {
 }
 
 export default function Home() {
-  const [products, setProducts] = useState([])
+  const [defaultProducts, setDefaultProducts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchMessage, setSearchMessage] = useState('')
   const { addItem } = useCartStore()
+  const navigate = useNavigate()
+  const defaultQuery = 'componentes pc en oferta'
 
   useEffect(() => {
     loadProducts()
@@ -33,14 +40,46 @@ export default function Home() {
   const loadProducts = async () => {
     try {
       setLoading(true)
-      const data = await productsAPI.getAll({ limit: 12 })
-      setProducts(data.products || [])
+      const data = await searchAPI.search(defaultQuery)
+      setDefaultProducts(data || [])
     } catch (error) {
       console.error('Error loading products:', error)
     } finally {
       setLoading(false)
     }
   }
+
+  const handleSearchText = (value) => {
+    setSearchTerm(value)
+  }
+
+  useEffect(() => {
+    if (!searchTerm) {
+      setSearchResults([])
+      setSearchMessage('')
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setSearchLoading(true)
+        const data = await searchAPI.search(searchTerm)
+        if (data.length === 0) {
+          setSearchMessage('No se encontraron componentes/hardware relevantes para esa búsqueda.')
+        } else {
+          setSearchMessage('')
+        }
+        setSearchResults(data)
+      } catch (error) {
+        console.error('Error en búsqueda:', error)
+        setSearchMessage('Error al buscar productos. Intenta con términos como CPU, GPU, RAM, teclado o mouse.')
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 400)
+
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   const features = [
     {
@@ -71,30 +110,31 @@ export default function Home() {
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative h-96 rounded-2xl overflow-hidden"
+        className="relative h-auto rounded-2xl overflow-hidden bg-slate-900 p-8"
       >
         <div className="absolute inset-0 bg-gradient-accent opacity-20"></div>
-        <div className="relative h-full flex items-center justify-center text-center p-6">
+        <div className="relative text-center max-w-4xl mx-auto">
           <motion.div variants={container} initial="hidden" animate="show">
             <motion.h1
               variants={item}
-              className="text-5xl md:text-7xl font-bold text-gradient mb-4"
+              className="text-4xl md:text-6xl font-bold text-gradient mb-4"
             >
               TecStore
             </motion.h1>
             <motion.p
               variants={item}
-              className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto"
+              className="text-lg md:text-xl text-slate-300 mb-6"
             >
-              Descubre los mejores productos tecnológicos con los precios más competitivos del mercado
+              Busca en tiempo real solo componentes y hardware de PC desde Mercado Libre y Amazon.
             </motion.p>
-            <motion.div variants={item} className="flex gap-4 justify-center flex-wrap">
-              <Button variant="primary" size="lg">
-                Explorar Productos
-              </Button>
-              <Button variant="secondary" size="lg">
-                Ver Ofertas
-              </Button>
+            <motion.div variants={item} className="max-w-2xl mx-auto">
+              <Input
+                icon={FiSearch}
+                value={searchTerm}
+                onChange={(e) => handleSearchText(e.target.value)}
+                placeholder="Busca CPU, GPU, RAM, teclado, mouse, gabinete..."
+                className="w-full py-4 text-lg"
+              />
             </motion.div>
           </motion.div>
         </div>
@@ -118,27 +158,53 @@ export default function Home() {
         ))}
       </motion.section>
 
-      {/* Latest Products */}
+      {/* Search Results or Latest Products */}
       <motion.section
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
       >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-3xl font-bold flex items-center gap-2">
-            <FiTrendingUp className="text-accent" />
-            Productos Destacados
-          </h2>
-          <Button variant="secondary" size="sm">
-            Ver Todos
-          </Button>
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+          <div>
+            <h2 className="text-3xl font-bold flex items-center gap-2">
+              <FiTrendingUp className="text-accent" />
+              {searchTerm ? 'Resultados de Búsqueda' : 'Ofertas Reales de Hardware'}
+            </h2>
+            {!searchTerm && (
+              <p className="text-sm text-slate-400 mt-1">
+                Mostrando los mejores componentes y ofertas reales desde Mercado Libre y Amazon.
+              </p>
+            )}
+          </div>
+          {!searchTerm && (
+            <Button variant="secondary" size="sm" onClick={() => navigate('/store')}>
+              Ver Todos en Tienda
+            </Button>
+          )}
         </div>
-        <ProductGrid
-          products={products}
-          loading={loading}
-          onAddCart={addItem}
-          onToggleFavorite={(id) => console.log('Toggle favorite:', id)}
-        />
+
+        {searchTerm ? (
+          <>
+            {searchMessage && (
+              <div className="mb-4 rounded-lg border border-slate-700 bg-slate-900 p-4 text-slate-300">
+                {searchMessage}
+              </div>
+            )}
+            <ProductGrid
+              products={searchResults}
+              loading={searchLoading}
+              onAddCart={addItem}
+              onToggleFavorite={(id) => console.log('Toggle favorite:', id)}
+            />
+          </>
+        ) : (
+          <ProductGrid
+            products={defaultProducts}
+            loading={loading}
+            onAddCart={addItem}
+            onToggleFavorite={(id) => console.log('Toggle favorite:', id)}
+          />
+        )}
       </motion.section>
 
       {/* CTA Section */}

@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { useAuthStore } from '../store/store'
 
 const API = axios.create({ 
   baseURL: 'http://127.0.0.1:3000/api/v1',
@@ -16,17 +17,31 @@ API.interceptors.request.use((config) => {
   return config
 })
 
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const logout = useAuthStore.getState().logout
+      if (logout) logout()
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
 // AUTH ENDPOINTS
 export const authAPI = {
-  register: (payload) => API.post('/auth/register', payload).then(r => r.data),
-  login: (payload) => API.post('/auth/login', payload).then(r => r.data),
+  register: (payload) => API.post('/auth/register', payload).then(r => r.data.data),
+  login: (payload) => API.post('/auth/login', payload).then(r => r.data.data),
   logout: () => localStorage.removeItem('token'),
 }
 
 // USERS ENDPOINTS
 export const usersAPI = {
-  getCurrentUser: () => API.get('/users/me').then(r => r.data),
-  updateProfile: (payload) => API.put('/users/profile', payload).then(r => r.data),
+  getCurrentUser: () => API.get('/users/me').then(r => r.data.data),
+  updateProfile: (payload) => API.put('/users/me', payload).then(r => r.data),
+  uploadAvatar: (formData) => API.put('/users/me/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data),
   getProfile: (userId) => API.get(`/users/${userId}`).then(r => r.data),
 }
 
@@ -43,10 +58,10 @@ export const productsAPI = {
 export const searchAPI = {
   search: (query, filters) => API.get('/search', { 
     params: { q: query, ...filters } 
-  }).then(r => r.data),
+  }).then(r => r.data.data),
   suggestions: (query) => API.get('/search/suggestions', { 
     params: { q: query } 
-  }).then(r => r.data),
+  }).then(r => r.data.data),
 }
 
 // CATEGORIES ENDPOINTS

@@ -15,6 +15,15 @@ class AmazonProvider extends BaseProvider {
       });
       const page = await browser.newPage();
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      await page.setRequestInterception(true);
+      page.on('request', (req) => {
+        const resourceType = req.resourceType();
+        if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+          req.abort();
+        } else {
+          req.continue();
+        }
+      });
       const url = `https://www.amazon.com.mx/s?k=${encodeURIComponent(query.q)}`;
       console.log(`Amazon: Navegando a ${url}`);
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
@@ -34,12 +43,11 @@ class AmazonProvider extends BaseProvider {
         }
         console.log(`Amazon evaluate: Encontrados ${elements.length} elementos`);
         elements.forEach((el, index) => {
-          if (index >= 5) return;
+          if (index >= 10) return;
           const titleEl = el.querySelector('h2 a span') || el.querySelector('.a-text-normal') || el.querySelector('h2 span');
           const title = titleEl ? titleEl.textContent.trim() : '';
           const priceWhole = el.querySelector('.a-price-whole');
           const priceFraction = el.querySelector('.a-price-fraction');
-          const priceSymbol = el.querySelector('.a-price-symbol');
           let price = null;
           if (priceWhole && priceFraction) {
             price = parseFloat(priceWhole.textContent.trim() + '.' + priceFraction.textContent.trim());
@@ -49,11 +57,19 @@ class AmazonProvider extends BaseProvider {
               price = parseFloat(priceText.replace(/[^\d.,]/g, '').replace(',', '.'));
             }
           }
-          const image = el.querySelector('img.s-image')?.src || '';
+          const originalPriceText = el.querySelector('.a-price.a-text-price .a-offscreen')?.textContent || el.querySelector('.a-text-price .a-offscreen')?.textContent;
+          let originalPrice = null;
+          if (originalPriceText) {
+            originalPrice = parseFloat(originalPriceText.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.'));
+          }
+          const imageEl = el.querySelector('img.s-image') || el.querySelector('img.a-image-normal') || el.querySelector('img');
+          const image = imageEl ? imageEl.src || imageEl.getAttribute('data-src') || imageEl.getAttribute('data-image-lazy-src') || '' : '';
           const linkEl = el.querySelector('h2 a') || el.querySelector('a.a-link-normal');
           const link = linkEl ? 'https://www.amazon.com.mx' + linkEl.getAttribute('href') : '';
           const ratingEl = el.querySelector('.a-icon-star-small .a-icon-alt');
           const rating = ratingEl ? parseFloat(ratingEl.textContent.split(' ')[0]) : null;
+
+          const discount = originalPrice && price ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
 
           if (title && price) {
             items.push({
@@ -63,6 +79,8 @@ class AmazonProvider extends BaseProvider {
               provider: 'amazon',
               image,
               price,
+              originalPrice,
+              discount,
               rating,
               url: link,
               category: query.category || 'general',
