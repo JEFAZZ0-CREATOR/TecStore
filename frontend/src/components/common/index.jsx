@@ -66,7 +66,7 @@ export const Input = React.forwardRef(({ icon: Icon, error, ...props }, ref) => 
     {Icon && <Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-accent" />}
     <input
       ref={ref}
-      className={`input-field ${Icon ? 'pl-10' : ''} ${error ? 'border-danger' : ''}`}
+      className={`input-field ${Icon ? 'pl-10' : ''} ${error ? 'border-danger' : ''} min-h-[48px]`}
       {...props}
     />
     {error && <p className="text-danger text-sm mt-1">{error}</p>}

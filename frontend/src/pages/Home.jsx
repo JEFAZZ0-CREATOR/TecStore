@@ -127,14 +127,16 @@ export default function Home() {
             >
               Busca en tiempo real solo componentes y hardware de PC desde Mercado Libre y Amazon.
             </motion.p>
-            <motion.div variants={item} className="max-w-2xl mx-auto">
-              <Input
-                icon={FiSearch}
-                value={searchTerm}
-                onChange={(e) => handleSearchText(e.target.value)}
-                placeholder="Busca CPU, GPU, RAM, teclado, mouse, gabinete..."
-                className="w-full py-4 text-lg"
-              />
+            <motion.div variants={item} className="max-w-3xl mx-auto w-full">
+              <div className="relative">
+                <Input
+                  icon={FiSearch}
+                  value={searchTerm}
+                  onChange={(e) => handleSearchText(e.target.value)}
+                  placeholder="Busca CPU, GPU, RAM, teclado, mouse, gabinete..."
+                  className="w-full py-4 text-lg rounded-2xl bg-slate-900/90 border-slate-700"
+                />
+              </div>
             </motion.div>
           </motion.div>
         </div>

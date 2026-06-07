@@ -3,5 +3,8 @@ const searchService = require('./search.service');
 
 exports.search = asyncHandler(async (req, res) => {
   const result = await searchService.searchProducts(req.query);
-  res.json({ success: true, data: result });
+  if (result && result.items) {
+    return res.json({ success: true, data: result });
+  }
+  res.json({ success: true, data: { items: result, meta: { page: 1, perPage: result.length, hasMore: false } } });
 });

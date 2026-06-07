@@ -93,41 +93,15 @@ class AmazonProvider extends BaseProvider {
 
       console.log(`Amazon: Encontrados ${products.count} elementos, ${products.items.length} productos válidos`);
       if (products.items.length === 0) {
-        // Fallback temporal
-        console.log('Amazon: Usando fallback mock');
-        return [
-          {
-            id: `amazon-${query.q}-fallback-0`,
-            title: `Teclado ${query.q} (Fallback)`,
-            description: 'Producto de ejemplo - scraping no funcionó',
-            provider: 'amazon',
-            image: 'https://via.placeholder.com/150',
-            price: 99.99,
-            rating: 4.5,
-            url: 'https://amazon.com.mx',
-            category: query.category || 'general',
-            specs: {}
-          }
-        ];
+        console.log('Amazon: No se encontraron productos sin fallback.');
+        return [];
       }
       return products.items;
     } catch (error) {
       console.error('Error scraping Amazon:', error.message);
       // Fallback en error
-      return [
-        {
-          id: `amazon-${query.q}-error-0`,
-          title: `Error en Amazon: ${error.message}`,
-          description: 'Producto de error',
-          provider: 'amazon',
-          image: '',
-          price: 0,
-          rating: null,
-          url: '',
-          category: query.category || 'general',
-          specs: {}
-        }
-      ];
+      console.error('Error scraping Amazon:', error)
+      return [];
     } finally {
       if (browser) await browser.close();
     }

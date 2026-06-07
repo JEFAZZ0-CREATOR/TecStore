@@ -21,14 +21,15 @@ class DDTechProvider extends BaseProvider {
           req.continue();
         }
       });
-      const url = `https://www.ddtech.mx/buscar?q=${encodeURIComponent(query.q)}`;
+      const pageNum = query.page || 1;
+      const url = `https://www.ddtech.mx/buscar?q=${encodeURIComponent(query.q)}&page=${pageNum}`;
       await page.goto(url, { waitUntil: 'networkidle2' });
 
       const products = await page.evaluate(() => {
         const items = [];
         const elements = document.querySelectorAll('.product-item');
         elements.forEach((el, index) => {
-          if (index >= 10) return;
+          if (index >= 25) return;
           const titleEl = el.querySelector('.product-title a');
           const title = titleEl ? titleEl.textContent.trim() : '';
           const priceEl = el.querySelector('.price');

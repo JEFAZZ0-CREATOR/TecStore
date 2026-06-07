@@ -12,27 +12,51 @@ export default function Store() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [priceRange, setPriceRange] = useState([0, 100000])
+  const [priceMin, setPriceMin] = useState(0)
+  const [priceMax, setPriceMax] = useState(10000)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const perPage = 25
   const defaultQuery = 'hardware pc ofertas'
+  const componentOptions = [
+    'Procesadores',
+    'Tarjetas de Video',
+    'Memoria RAM',
+    'Tarjetas Madre',
+    'Almacenamiento',
+    'Fuentes de Poder',
+    'Gabinetes',
+    'Refrigeración',
+    'Periféricos',
+    'Monitores',
+    'Teclados',
+    'Mouses',
+    'SSD',
+    'Accesorios',
+  ]
   const { addItem } = useCartStore()
   const { filters, setFilters, sortBy, setSortBy } = useFiltersStore()
 
   useEffect(() => {
-    loadProducts()
     loadCategories()
+    loadProducts()
   }, [])
 
-  const loadProducts = async () => {
+  const loadProducts = async (newPage = page) => {
     try {
       setLoading(true)
       const query = searchTerm || defaultQuery
       const filtersPayload = {
-        minPrice: priceRange[0],
-        maxPrice: priceRange[1],
+        minPrice: priceMin,
+        maxPrice: priceMax,
+        page: newPage,
+        perPage,
         ...filters,
       }
-      const data = await searchAPI.search(query, filtersPayload)
-      setProducts(data || [])
+      const res = await searchAPI.search(query, filtersPayload)
+      const items = Array.isArray(res) ? res : (res.items || [])
+      setProducts(items)
+      setHasMore(res.meta?.hasMore || false)
     } catch (error) {
       console.error('Error loading products:', error)
     } finally {
@@ -52,12 +76,18 @@ export default function Store() {
   const handleSearch = (e) => {
     const value = e.target.value
     setSearchTerm(value)
+    setPage(1)
   }
 
   useEffect(() => {
-    const timer = setTimeout(loadProducts, 500)
+    const timer = setTimeout(() => loadProducts(1), 500)
     return () => clearTimeout(timer)
-  }, [searchTerm, priceRange, filters, sortBy])
+  }, [searchTerm, priceMin, priceMax, filters, sortBy])
+
+  useEffect(() => {
+    // load products when page changes
+    loadProducts(page)
+  }, [page])
 
   return (
     <div className="space-y-6">
@@ -69,7 +99,7 @@ export default function Store() {
       >
         <div>
           <h1 className="text-4xl font-bold text-gradient">Tienda</h1>
-          <p className="text-slate-400 mt-1">{products.length} productos encontrados</p>
+          <p className="text-slate-400 mt-1">Página {page} — {products.length} productos</p>
         </div>
         <Button
           variant="secondary"
@@ -107,48 +137,120 @@ export default function Store() {
                 placeholder="Buscar productos..."
                 value={searchTerm}
                 onChange={handleSearch}
+                className="rounded-2xl bg-slate-900/90"
               />
+            </div>
+
+            {/* Component Type */}
+            <div>
+              <label className="text-sm font-semibold mb-3 block">Filtrar por componente</label>
+              <select
+                value={filters.category || ''}
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (value) {
+                    setFilters({ ...filters, category: value })
+                  } else {
+                    const { category, ...rest } = filters
+                    setFilters(rest)
+                  }
+                  setPage(1)
+                }}
+                className="input-field w-full"
+              >
+                <option value="">Todos los componentes</option>
+                {componentOptions.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
             </div>
 
             {/* Categories */}
             <div>
               <label className="text-sm font-semibold mb-3 block">Categorías</label>
-              <div className="space-y-2">
-                {categories.map((cat) => (
-                  <label key={cat._id} className="flex items-center gap-2 cursor-pointer hover:text-accent">
-                    <input
-                      type="checkbox"
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setFilters({ ...filters, category: cat._id })
-                        } else {
-                          const { category, ...rest } = filters
-                          setFilters(rest)
-                        }
-                      }}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">{cat.name}</span>
-                  </label>
-                ))}
+              <div className="space-y-2 max-h-40 overflow-auto pr-2">
+                {categories.map((cat) => {
+                  const checked = filters.category === cat._id || filters.category === cat.name
+                  return (
+                    <label key={cat._id} className="flex items-center gap-2 cursor-pointer hover:text-accent">
+                      <input
+                        type="radio"
+                        name="store-category"
+                        checked={checked}
+                        onChange={() => {
+                          setFilters({ ...filters, category: cat.name })
+                          setPage(1)
+                        }}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm">{cat.name}</span>
+                    </label>
+                  )
+                })}
               </div>
             </div>
 
             {/* Price Range */}
             <div>
               <label className="text-sm font-semibold mb-3 block">Rango de Precio</label>
-              <div className="space-y-2">
+              <div className="grid gap-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-slate-400 w-20">Mínimo</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10000"
+                    value={priceMin}
+                    onChange={(e) => {
+                      const min = Math.max(0, Math.min(10000, Number(e.target.value)))
+                      setPriceMin(Math.min(min, priceMax))
+                      setPage(1)
+                    }}
+                    className="input-field w-full"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-slate-400 w-20">Máximo</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10000"
+                    value={priceMax}
+                    onChange={(e) => {
+                      const max = Math.max(0, Math.min(10000, Number(e.target.value)))
+                      setPriceMax(Math.max(priceMin, max))
+                      setPage(1)
+                    }}
+                    className="input-field w-full"
+                  />
+                </div>
                 <input
                   type="range"
                   min="0"
-                  max="100000"
-                  value={priceRange[1]}
-                  onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
+                  max="10000"
+                  value={priceMin}
+                  onChange={(e) => {
+                    const min = Math.min(Number(e.target.value), priceMax)
+                    setPriceMin(min)
+                    setPage(1)
+                  }}
                   className="w-full"
                 />
-                <div className="flex justify-between text-sm">
-                  <span>${priceRange[0]}</span>
-                  <span>${priceRange[1]}</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="10000"
+                  value={priceMax}
+                  onChange={(e) => {
+                    const max = Math.max(Number(e.target.value), priceMin)
+                    setPriceMax(max)
+                    setPage(1)
+                  }}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-sm text-slate-400">
+                  <span>${priceMin}</span>
+                  <span>${priceMax}</span>
                 </div>
               </div>
             </div>
@@ -175,7 +277,9 @@ export default function Store() {
                 setFilters({})
                 setSortBy('relevance')
                 setSearchTerm('')
-                setPriceRange([0, 10000])
+                setPriceMin(0)
+                setPriceMax(10000)
+                setPage(1)
               }}
               className="w-full"
             >
@@ -192,6 +296,38 @@ export default function Store() {
             onAddCart={addItem}
             onToggleFavorite={(id) => console.log('Toggle favorite:', id)}
           />
+
+          {/* Pagination */}
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <button
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page === 1}
+              className="btn-icon"
+            >
+              &lt;
+            </button>
+
+            {Array.from({ length: 8 }).map((_, i) => {
+              const p = i + 1
+              return (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`px-3 py-1 rounded ${p === page ? 'border-2 border-accent' : 'text-gray-400'}`}
+                >
+                  {p}
+                </button>
+              )
+            })}
+
+            <button
+              onClick={() => setPage(page + 1)}
+              disabled={!hasMore}
+              className="btn-icon"
+            >
+              &gt;
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 ﻿exports.normalizeProduct = (raw) => ({
-  id: raw.id,
+  id: raw.id || raw._id || `${raw.title}-${raw.price}`,
   title: raw.title,
   name: raw.title,
   description: raw.description || raw.title,
@@ -13,4 +13,5 @@
   url: raw.url,
   category: raw.category || 'componentes',
   specs: raw.specs || {},
+  source: raw.source || 'local',
 });

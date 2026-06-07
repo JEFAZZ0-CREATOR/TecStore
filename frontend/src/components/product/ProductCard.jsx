@@ -6,16 +6,27 @@ import { GlassCard, Badge } from '../common'
 
 export const ProductCard = ({ product, onAddCart, onToggleFavorite, isFavorite }) => {
   const [isHovered, setIsHovered] = React.useState(false)
-  const externalUrl = product.url && product.url.startsWith('http')
+  const externalUrl = product.url && product.url.startsWith('http') ? product.url : null
   const productName = product.name || product.title || 'Producto'
   const productId = product._id || product.id
   const hasExternalId = Boolean(productId)
 
+  const openExternal = () => {
+    if (!externalUrl) return
+    window.open(externalUrl, '_blank', 'noopener,noreferrer')
+  }
+
   const ContentWrapper = ({ children }) => (
     externalUrl ? (
-      <a href={externalUrl} target="_blank" rel="noreferrer" className="relative w-full h-48 bg-slate-800 overflow-hidden">
+      <div
+        role="link"
+        tabIndex={0}
+        onClick={openExternal}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openExternal() }}
+        className="relative w-full h-48 bg-slate-800 overflow-hidden cursor-pointer"
+      >
         {children}
-      </a>
+      </div>
     ) : (
       <Link to={`/products/${productId}`} className="relative w-full h-48 bg-slate-800 overflow-hidden">
         {children}
@@ -35,9 +46,9 @@ export const ProductCard = ({ product, onAddCart, onToggleFavorite, isFavorite }
         {/* Image Container */}
         <ContentWrapper>
           <img
-            src={product.image || 'https://via.placeholder.com/200x200'}
+            src={product.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22 viewBox=%220 0 200 200%22%3E%3Crect width=%22200%22 height=%22200%22 fill=%22%23263a52%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%23ffffff%22 font-family=%22Arial%22 font-size=%2216%22%3EImagen%20no%20disponible%3C/text%3E%3C/svg%3E'}
             alt={productName}
-            onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/200x200' }}
+            onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22 viewBox=%220 0 200 200%22%3E%3Crect width=%22200%22 height=%22200%22 fill=%22%23263a52%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%23ffffff%22 font-family=%22Arial%22 font-size=%2216%22%3EImagen%20no%20disponible%3C/text%3E%3C/svg%3E'}}
             className="w-full h-full object-cover hover:scale-110 transition-transform"
           />
 
@@ -55,14 +66,16 @@ export const ProductCard = ({ product, onAddCart, onToggleFavorite, isFavorite }
             className="absolute inset-0 bg-black/60 flex items-center justify-center gap-3"
           >
             {externalUrl ? (
-              <a
-                href={externalUrl}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  openExternal()
+                }}
                 className="btn-primary flex items-center gap-2"
               >
                 <FiExternalLink /> Ver tienda
-              </a>
+              </button>
             ) : (
               <motion.button
                 whileTap={{ scale: 0.9 }}
@@ -92,15 +105,9 @@ export const ProductCard = ({ product, onAddCart, onToggleFavorite, isFavorite }
         <div className="flex-1 p-3 flex flex-col justify-between">
           <div>
             <p className="text-xs text-accent mb-1">{product.category}</p>
-            {externalUrl ? (
-              <a href={externalUrl} target="_blank" rel="noreferrer" className="font-semibold hover:text-accent line-clamp-2">
-                {productName}
-              </a>
-            ) : (
-              <Link to={`/products/${productId}`} className="font-semibold hover:text-accent line-clamp-2">
-                {productName}
-              </Link>
-            )}
+            <p className="font-semibold hover:text-accent line-clamp-2">
+              {productName}
+            </p>
           </div>
 
           {/* Rating */}
@@ -162,8 +169,8 @@ export const ProductGrid = ({ products = [], loading = false, onAddCart, onToggl
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {products.map((product) => {
-        const productId = product._id || product.id
+      {products.map((product, index) => {
+        const productId = product._id || product.id || `${product.title}-${index}`
         return (
           <ProductCard
             key={productId}

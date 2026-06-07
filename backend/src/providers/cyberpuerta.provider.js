@@ -9,9 +9,12 @@ class CyberpuertaProvider extends BaseProvider {
   async search(query) {
     let browser;
     try {
-      browser = await puppeteer.launch({ headless: true });
+      browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security'],
+      });
       const page = await browser.newPage();
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
       await page.setRequestInterception(true);
       page.on('request', (req) => {
         const resourceType = req.resourceType();
@@ -21,40 +24,47 @@ class CyberpuertaProvider extends BaseProvider {
           req.continue();
         }
       });
-      const url = `https://www.cyberpuerta.mx/?q=${encodeURIComponent(query.q)}`;
-      await page.goto(url, { waitUntil: 'networkidle2' });
 
-      const products = await page.evaluate(() => {
-        const items = [];
-        const elements = document.querySelectorAll('.emproduct');
-        elements.forEach((el, index) => {
-          if (index >= 10) return;
-          const titleEl = el.querySelector('.emproduct_right_title h2 a');
-          const title = titleEl ? titleEl.textContent.trim() : '';
-          const priceEl = el.querySelector('.price');
-          const price = priceEl ? parseFloat(priceEl.textContent.replace(/[^\d.,]/g, '').replace(',', '.')) : null;
-          const imageEl = el.querySelector('.emproduct_left img') || el.querySelector('img');
-          const image = imageEl ? imageEl.src || imageEl.getAttribute('data-src') || '' : '';
-          const linkEl = el.querySelector('.emproduct_right_title h2 a');
+      const pageNum = query.page || 1;
+      const url = `https://www.cyberpuerta.mx/?q=${encodeURIComponent(query.q)}&page=${pageNum}`;
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+      await page.waitForSelector('.cpd-product-card-catalog', { timeout: 15000 });
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      const categoryValue = query.category || 'hardware';
+      const products = await page.evaluate((category) => {
+        return Array.from(document.querySelectorAll('.cpd-product-card-catalog')).slice(0, 50).map((card, index) => {
+          const titleEl = card.querySelector('.cp-product-info-dne__name');
+          const name = titleEl ? titleEl.textContent.trim() : '';
+          const linkEl = card.querySelector('.cp-product-info-dne--catalog-grid');
+          const imageEl = card.querySelector('.cp-product-image__image');
+          const priceEl = card.querySelector('.cpd-product-card-catalog__price .cp-text--price-total');
+
+          const rawPrice = priceEl ? priceEl.textContent.replace(/[^\d.,]/g, '') : '';
+          const normalizedPrice = rawPrice.includes(',') && rawPrice.includes('.')
+            ? rawPrice.replace(/,/g, '')
+            : rawPrice.replace(/,/g, '.');
+          const price = normalizedPrice ? parseFloat(normalizedPrice) : null;
           const link = linkEl ? linkEl.href : '';
+          const image = imageEl ? imageEl.src || imageEl.getAttribute('data-src') || '' : '';
 
-          if (title && price) {
-            items.push({
-              id: `cyber-${query.q}-${index}`,
-              title,
-              description: title,
-              provider: 'cyberpuerta',
-              image,
-              price,
-              rating: null,
-              url: link,
-              category: query.category || 'general',
-              specs: {}
-            });
-          }
-        });
-        return items;
-      });
+          return {
+            id: `cyberpuerta-${index}`,
+            title: name,
+            description: name,
+            provider: 'cyberpuerta',
+            source: 'external',
+            image,
+            price: price || 0,
+            originalPrice: null,
+            discount: 0,
+            rating: null,
+            url: link,
+            category,
+            specs: {},
+          };
+        }).filter((item) => item.title && item.price && item.url);
+      }, categoryValue);
 
       console.log(`Cyberpuerta: Encontrados ${products.length} productos`);
       return products;
