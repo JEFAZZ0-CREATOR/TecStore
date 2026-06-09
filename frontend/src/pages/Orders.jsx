@@ -1,16 +1,23 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   FiPackage, FiCalendar, FiDollarSign, FiChevronDown, FiChevronUp,
   FiExternalLink, FiShoppingBag, FiTrendingUp, FiClock, FiGlobe, FiPieChart,
-  FiSearch, FiX, FiSliders,
+  FiSearch, FiX, FiSliders, FiDownload, FiCheckCircle,
 } from 'react-icons/fi'
-import { format, formatDistanceToNow } from 'date-fns'
+import { format, formatDistanceToNow, startOfWeek, startOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { purchasesAPI } from '../services/api'
 import { GlassCard, LoadingSpinner, EmptyState, Badge } from '../components/common'
 
 const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6']
+
+const PERIOD_PRESETS = [
+  { label: 'Hoy',        key: 'today'  },
+  { label: 'Esta semana',key: 'week'   },
+  { label: 'Este mes',   key: 'month'  },
+  { label: 'Todo',       key: 'all'    },
+]
 
 const SORT_OPTIONS = [
   { value: 'date-desc', label: 'Más reciente primero' },
@@ -20,6 +27,112 @@ const SORT_OPTIONS = [
   { value: 'items-desc', label: 'Más productos primero' },
   { value: 'items-asc', label: 'Menos productos primero' },
 ]
+
+const CumulativeChart = ({ purchases = [] }) => {
+  const [hoverIdx, setHoverIdx] = useState(null)
+
+  const points = useMemo(() => {
+    if (!purchases.length) return []
+    const sorted = [...purchases].sort((a, b) => new Date(a.purchasedAt) - new Date(b.purchasedAt))
+    let cum = 0
+    return sorted.map(p => {
+      cum += p.subtotal || 0
+      return { date: new Date(p.purchasedAt), cum, label: format(new Date(p.purchasedAt), 'dd/MM', { locale: es }) }
+    })
+  }, [purchases])
+
+  if (points.length < 2) {
+    return <p className="text-slate-400 text-sm text-center py-8">Se necesitan al menos 2 sesiones</p>
+  }
+
+  const W = 540
+  const H = 180
+  const PAD = { top: 20, right: 20, bottom: 36, left: 64 }
+  const cW = W - PAD.left - PAD.right
+  const cH = H - PAD.top - PAD.bottom
+
+  const maxVal = points[points.length - 1].cum
+  const xOf = (i) => PAD.left + (i / (points.length - 1)) * cW
+  const yOf = (v) => PAD.top + cH - (v / maxVal) * cH
+
+  const linePts = points.map((p, i) => `${xOf(i)},${yOf(p.cum)}`).join(' ')
+  const areaPts = `${xOf(0)},${PAD.top + cH} ${linePts} ${xOf(points.length - 1)},${PAD.top + cH}`
+
+  const yTicks = [0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75, maxVal]
+  const step = Math.max(1, Math.floor(points.length / 4))
+  const xIdxs = [...new Set([0, step, step * 2, step * 3, points.length - 1])]
+
+  return (
+    <div className="relative select-none" onMouseLeave={() => setHoverIdx(null)}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible" style={{ height: H }}>
+        <defs>
+          <linearGradient id="cumFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor="#8b5cf6" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+
+        {yTicks.map((t, i) => (
+          <g key={i}>
+            <line x1={PAD.left} y1={yOf(t)} x2={PAD.left + cW} y2={yOf(t)} stroke="#1e293b" strokeWidth="1" strokeDasharray="4,4" />
+            <text x={PAD.left - 8} y={yOf(t)} fill="#64748b" fontSize="11" textAnchor="end" dominantBaseline="middle">
+              ${t.toFixed(0)}
+            </text>
+          </g>
+        ))}
+
+        <line x1={PAD.left} y1={PAD.top + cH} x2={PAD.left + cW} y2={PAD.top + cH} stroke="#334155" strokeWidth="1" />
+
+        {xIdxs.filter(i => i < points.length).map(i => (
+          <text key={i} x={xOf(i)} y={H - 4} fill="#64748b" fontSize="11" textAnchor="middle">{points[i].label}</text>
+        ))}
+
+        {hoverIdx !== null && (
+          <line x1={xOf(hoverIdx)} y1={PAD.top} x2={xOf(hoverIdx)} y2={PAD.top + cH}
+            stroke="#475569" strokeWidth="1" strokeDasharray="4,4" />
+        )}
+
+        <polygon points={areaPts} fill="url(#cumFill)" />
+        <polyline points={linePts} fill="none" stroke="#8b5cf6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+
+        {hoverIdx !== null && (
+          <circle cx={xOf(hoverIdx)} cy={yOf(points[hoverIdx].cum)} r="4.5"
+            fill="#8b5cf6" stroke="#0f172a" strokeWidth="2.5" />
+        )}
+
+        {points.map((_, i) => (
+          <rect key={i}
+            x={xOf(i) - cW / points.length / 2} y={PAD.top}
+            width={cW / points.length} height={cH}
+            fill="transparent" style={{ cursor: 'crosshair' }}
+            onMouseEnter={() => setHoverIdx(i)}
+          />
+        ))}
+      </svg>
+
+      <AnimatePresence>
+        {hoverIdx !== null && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.1 }}
+            className="absolute pointer-events-none z-20 bg-slate-900 border border-slate-600 rounded-xl shadow-2xl px-3.5 py-2.5"
+            style={{
+              left: `${(PAD.left / W + (hoverIdx / (points.length - 1)) * (cW / W)) * 100}%`,
+              top:  `${(yOf(points[hoverIdx].cum) / H) * 100}%`,
+              transform: 'translate(-50%, calc(-100% - 12px))',
+            }}
+          >
+            <p className="text-base font-black text-purple-400">${points[hoverIdx].cum.toFixed(2)}</p>
+            <p className="text-slate-400 text-xs mt-0.5">acumulado</p>
+            <p className="text-slate-500 text-xs">
+              {format(points[hoverIdx].date, "d MMM yyyy HH:mm", { locale: es })}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
 
 const BarChart = ({ data, valueKey = 'amount', labelKey = 'month', color = '#3b82f6', height = 160 }) => {
   if (!data?.length) {
@@ -156,6 +269,8 @@ export default function Orders() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState(null)
+  const [toast, setToast] = useState(null)
+  const [activePeriod, setActivePeriod] = useState('all')
 
   // Filter state
   const [searchText, setSearchText] = useState('')
@@ -168,6 +283,28 @@ export default function Orders() {
   const [showFilters, setShowFilters] = useState(false)
 
   useEffect(() => { loadData() }, [])
+
+  const showToast = useCallback((msg) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 3000)
+  }, [])
+
+  const applyPeriod = useCallback((key) => {
+    setActivePeriod(key)
+    const now = new Date()
+    if (key === 'today') {
+      const d = format(now, 'yyyy-MM-dd')
+      setDateFrom(d); setDateTo(d)
+    } else if (key === 'week') {
+      setDateFrom(format(startOfWeek(now, { locale: es }), 'yyyy-MM-dd'))
+      setDateTo(format(now, 'yyyy-MM-dd'))
+    } else if (key === 'month') {
+      setDateFrom(format(startOfMonth(now), 'yyyy-MM-dd'))
+      setDateTo(format(now, 'yyyy-MM-dd'))
+    } else {
+      setDateFrom(''); setDateTo('')
+    }
+  }, [])
 
   const loadData = async () => {
     try {
@@ -239,6 +376,25 @@ export default function Orders() {
     filteredPurchases.reduce((sum, p) => sum + (p.subtotal || 0), 0)
   , [filteredPurchases])
 
+  const exportCSV = useCallback(() => {
+    const BOM = '﻿'
+    const header = ['Sesión', 'Fecha', 'Hora', 'Proveedores', 'Productos', 'Total ($)']
+    const rows = filteredPurchases.map(p => [
+      `#${p.sessionId?.slice(0, 8).toUpperCase()}`,
+      format(new Date(p.purchasedAt), 'dd/MM/yyyy', { locale: es }),
+      format(new Date(p.purchasedAt), 'HH:mm:ss'),
+      (p.providers || []).join(' | '),
+      p.itemCount,
+      p.subtotal?.toFixed(2),
+    ])
+    const csv = BOM + [header, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n')
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
+    a.download = `historial_compras_${format(new Date(), 'yyyy-MM-dd')}.csv`
+    a.click()
+    showToast(`CSV exportado: ${filteredPurchases.length} sesiones`)
+  }, [filteredPurchases, showToast])
+
   const clearAllFilters = () => {
     setSearchText('')
     setDateFrom('')
@@ -247,6 +403,7 @@ export default function Orders() {
     setAmountMax('')
     setSelectedProviders([])
     setSortValue('date-desc')
+    setActivePeriod('all')
   }
 
   const toggleProvider = (provider) =>
@@ -272,7 +429,24 @@ export default function Orders() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-8 relative">
+
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -16, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="fixed top-20 right-6 z-50 flex items-center gap-3 bg-slate-800 border border-emerald-500/50 text-emerald-400 rounded-xl shadow-2xl px-4 py-3 text-sm font-medium"
+          >
+            <FiCheckCircle size={16} />
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div>
         <h1 className="text-4xl font-bold text-gradient">Historial de Compras</h1>
         <p className="text-slate-400 mt-1">Reportes, gráficas y registro detallado de cada sesión</p>
@@ -310,6 +484,14 @@ export default function Orders() {
                 <FiTrendingUp className="text-accent" /> Gasto por mes
               </h2>
               <BarChart data={stats.monthlySeries} labelKey="month" valueKey="amount" />
+            </GlassCard>
+
+            <GlassCard className="p-6 lg:col-span-2">
+              <h2 className="text-lg font-bold mb-1 flex items-center gap-2">
+                <FiTrendingUp className="text-purple-400" /> Gasto acumulado
+              </h2>
+              <p className="text-xs text-slate-500 mb-4">Evolución del total invertido en el tiempo</p>
+              <CumulativeChart purchases={purchases} />
             </GlassCard>
 
             <GlassCard className="p-6 lg:col-span-2">
@@ -369,7 +551,7 @@ export default function Orders() {
                 )}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <select
               value={sortValue}
               onChange={e => setSortValue(e.target.value)}
@@ -379,6 +561,13 @@ export default function Orders() {
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+            <button
+              onClick={exportCSV}
+              title="Exportar a CSV"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 text-sm font-medium hover:border-emerald-500/60 hover:text-emerald-400 transition-all"
+            >
+              <FiDownload size={15} /> CSV
+            </button>
             <button
               onClick={() => setShowFilters(v => !v)}
               className={`relative flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
@@ -396,6 +585,25 @@ export default function Orders() {
               )}
             </button>
           </div>
+        </div>
+
+        {/* Period quick-filter tabs */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs text-slate-500 mr-1">Período:</span>
+          {PERIOD_PRESETS.map(({ label, key }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => applyPeriod(key)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                activePeriod === key
+                  ? 'bg-accent border-accent text-white shadow-[0_0_10px_rgba(99,102,241,0.3)]'
+                  : 'border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Barra de búsqueda — siempre visible */}
