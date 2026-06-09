@@ -8,6 +8,8 @@ const favoriteRoutes = require('../../modules/favorites/favorite.routes');
 const cartRoutes = require('../../modules/cart/cart.routes');
 const orderRoutes = require('../../modules/orders/order.routes');
 const paymentRoutes = require('../../modules/payments/payment.routes');
+const purchaseRoutes = require('../../modules/purchases/purchase.routes');
+const priceHistoryRoutes = require('../../modules/price-history/priceHistory.routes');
 
 module.exports = (router) => {
   router.use('/auth', authRoutes);
@@ -20,4 +22,6 @@ module.exports = (router) => {
   router.use('/cart', cartRoutes);
   router.use('/orders', orderRoutes);
   router.use('/payments', paymentRoutes);
+  router.use('/purchases', purchaseRoutes);
+  router.use('/price-history', priceHistoryRoutes);
 };

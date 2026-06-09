@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-import { FiHeart, FiX } from 'react-icons/fi'
+import { FiHeart } from 'react-icons/fi'
 import { favoritesAPI } from '../services/api'
 import { useCartStore } from '../store/store'
+import { useFavorites } from '../hooks/useFavorites'
+import { favoriteToProduct } from '../utils/product'
 import { ProductGrid } from '../components/product/ProductCard'
-import { GlassCard, Button, EmptyState } from '../components/common'
+import { EmptyState } from '../components/common'
 
 export default function Favorites() {
   const [favorites, setFavorites] = useState([])
   const [loading, setLoading] = useState(true)
   const { addItem } = useCartStore()
+  const { toggleFavorite, isFavorite, refresh } = useFavorites()
 
   useEffect(() => {
     loadFavorites()
@@ -19,7 +21,9 @@ export default function Favorites() {
     try {
       setLoading(true)
       const data = await favoritesAPI.getAll()
-      setFavorites(data.favorites || [])
+      const list = Array.isArray(data) ? data : (data?.favorites || [])
+      setFavorites(list.map(favoriteToProduct))
+      await refresh()
     } catch (error) {
       console.error('Error loading favorites:', error)
     } finally {
@@ -27,13 +31,9 @@ export default function Favorites() {
     }
   }
 
-  const handleRemoveFavorite = async (productId) => {
-    try {
-      await favoritesAPI.remove(productId)
-      setFavorites(favorites.filter(fav => fav._id !== productId))
-    } catch (error) {
-      console.error('Error removing favorite:', error)
-    }
+  const handleRemoveFavorite = async (product) => {
+    await toggleFavorite(product)
+    setFavorites((prev) => prev.filter((fav) => fav.identifier !== product.identifier))
   }
 
   if (loading) {
@@ -52,7 +52,7 @@ export default function Favorites() {
         <EmptyState
           icon={FiHeart}
           title="No hay favoritos"
-          description="Marca productos como favoritos para guardarlos aquí"
+          description="Marca productos con el corazón en la tienda para guardarlos aquí"
         />
       </div>
     )
@@ -70,7 +70,7 @@ export default function Favorites() {
         loading={loading}
         onAddCart={addItem}
         onToggleFavorite={handleRemoveFavorite}
-        favorites={favorites.map(f => f._id)}
+        isFavoriteFn={isFavorite}
       />
     </div>
   )

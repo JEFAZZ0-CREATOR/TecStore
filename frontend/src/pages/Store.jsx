@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { FiSearch, FiFilter, FiX } from 'react-icons/fi'
 import { searchAPI, categoriesAPI } from '../services/api'
 import { useCartStore, useFiltersStore } from '../store/store'
+import { useFavorites } from '../hooks/useFavorites'
 import { ProductGrid } from '../components/product/ProductCard'
 import { Input, Button } from '../components/common'
 
@@ -36,6 +37,7 @@ export default function Store() {
   ]
   const { addItem } = useCartStore()
   const { filters, setFilters, sortBy, setSortBy } = useFiltersStore()
+  const { toggleFavorite, isFavorite } = useFavorites()
 
   useEffect(() => {
     loadCategories()
@@ -294,7 +296,8 @@ export default function Store() {
             products={products}
             loading={loading}
             onAddCart={addItem}
-            onToggleFavorite={(id) => console.log('Toggle favorite:', id)}
+            onToggleFavorite={toggleFavorite}
+            isFavoriteFn={isFavorite}
           />
 
           {/* Pagination */}
