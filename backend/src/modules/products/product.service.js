@@ -1,4 +1,4 @@
-﻿const Product = require('./product.model');
+const Product = require('./product.model');
 const AppError = require('../../shared/utils/AppError');
 
 exports.getProducts = async (query) => {
@@ -18,7 +18,18 @@ exports.getProducts = async (query) => {
     if (query.maxPrice) filter.price.$lte = Number(query.maxPrice);
   }
 
-  return Product.find(filter).lean();
+  if (query.hasDiscount === 'true' || query.hasDiscount === true) {
+    filter.discount = { $gt: 0 };
+  }
+
+  if (query.available !== undefined) {
+    filter.available = query.available === 'true' || query.available === true;
+  }
+
+  const limit = query.limit ? Math.min(Number(query.limit), 100) : 50;
+  const sortField = query.sort === 'discount' ? { discount: -1 } : { createdAt: -1 };
+
+  return Product.find(filter).sort(sortField).limit(limit).lean();
 };
 
 exports.getProductById = async (id) => {
