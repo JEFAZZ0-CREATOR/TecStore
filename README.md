@@ -1,7 +1,7 @@
 # TecStore — Tienda Virtual de Componentes de PC
 
 **TecStore** es una aplicación web completa tipo e-commerce especializada en **hardware de computadora** (procesadores, tarjetas madre, RAM, GPUs, almacenamiento, etc.). Está construida con el stack **MERN**:
-
+h
 | Letra | Tecnología | Carpeta |
 |-------|------------|---------|
 | **M** | MongoDB | Base de datos en el backend |
