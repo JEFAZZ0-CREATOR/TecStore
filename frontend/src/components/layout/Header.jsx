@@ -1,16 +1,20 @@
 import React, { useRef, useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { FiMenu, FiX, FiShoppingCart, FiSearch, FiUser, FiHeart } from 'react-icons/fi'
+import { Link, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { FiMenu, FiX, FiShoppingCart, FiSearch, FiHeart } from 'react-icons/fi'
 import { useAuthStore, useCartStore, useUiStore } from '../../store/store'
 import { useFavorites } from '../../hooks/useFavorites'
+import { SearchWithSuggestions } from '../search/SearchWithSuggestions'
 
 export const Header = () => {
+  const navigate = useNavigate()
   const { sidebarOpen, toggleSidebar, searchOpen, toggleSearch } = useUiStore()
   const { user, logout } = useAuthStore()
   const { itemCount } = useCartStore()
   const { count: favoriteCount } = useFavorites()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [headerSearch, setHeaderSearch] = useState('')
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const menuRef = useRef(null)
 
   useEffect(() => {
@@ -19,7 +23,12 @@ export const Header = () => {
         setMenuOpen(false)
       }
     }
-    const handleEsc = (e) => { if (e.key === 'Escape') setMenuOpen(false) }
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        setMenuOpen(false)
+        setMobileSearchOpen(false)
+      }
+    }
     document.addEventListener('mousedown', handleOutside)
     document.addEventListener('keydown', handleEsc)
     return () => {
@@ -28,43 +37,45 @@ export const Header = () => {
     }
   }, [])
 
+  const handleHeaderSearchSubmit = (term) => {
+    if (!term?.trim()) return
+    setHeaderSearch('')
+    setMobileSearchOpen(false)
+    navigate(`/store?q=${encodeURIComponent(term.trim())}`)
+  }
+
   return (
     <motion.header
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       className="sticky top-0 z-50 backdrop-blur-md bg-primary/80 border-b border-slate-700"
     >
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 group">
+        <Link to="/" className="flex items-center gap-2 group flex-shrink-0">
           <div className="relative w-8 h-8 bg-gradient-accent rounded-lg flex items-center justify-center text-white font-bold text-sm group-hover:shadow-neon transition-shadow">
             TS
           </div>
           <span className="text-gradient font-bold hidden sm:inline">TecStore</span>
         </Link>
 
-        {/* Search Bar */}
-        <motion.div
-          className="flex-1 max-w-md hidden md:block mx-4"
-          whileFocus={{ scale: 1.02 }}
-        >
-          <div className="relative">
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-accent" />
-            <input
-              type="text"
-              placeholder="Buscar productos..."
-              className="input-field pl-10 w-full"
-            />
-          </div>
-        </motion.div>
+        {/* Search Bar — desktop */}
+        <SearchWithSuggestions
+          value={headerSearch}
+          onChange={(e) => setHeaderSearch(e.target.value)}
+          onSubmit={handleHeaderSearchSubmit}
+          placeholder="Buscar productos, componentes..."
+          className="flex-1 max-w-md hidden md:block"
+        />
 
         {/* Right Actions */}
-        <div className="flex items-center gap-4">
-          {/* Search Mobile */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Search toggle — mobile */}
           <motion.button
             whileTap={{ scale: 0.9 }}
-            onClick={toggleSearch}
+            onClick={() => setMobileSearchOpen(v => !v)}
             className="btn-icon md:hidden"
+            aria-label="Buscar"
           >
             <FiSearch size={20} />
           </motion.button>
@@ -145,7 +156,7 @@ export const Header = () => {
             </Link>
           )}
 
-          {/* Menu Toggle */}
+          {/* Sidebar toggle — mobile */}
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={toggleSidebar}
@@ -155,6 +166,29 @@ export const Header = () => {
           </motion.button>
         </div>
       </div>
+
+      {/* Mobile search bar */}
+      <AnimatePresence>
+        {mobileSearchOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="md:hidden overflow-hidden border-t border-slate-700"
+          >
+            <div className="px-4 py-3">
+              <SearchWithSuggestions
+                value={headerSearch}
+                onChange={(e) => setHeaderSearch(e.target.value)}
+                onSubmit={handleHeaderSearchSubmit}
+                placeholder="Buscar productos..."
+                autoFocus
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.header>
   )
 }

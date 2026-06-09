@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   FiPackage, FiCalendar, FiDollarSign, FiChevronDown, FiChevronUp,
   FiExternalLink, FiShoppingBag, FiTrendingUp, FiClock, FiGlobe, FiPieChart,
+  FiSearch, FiX, FiSliders,
 } from 'react-icons/fi'
 import { format, formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -10,6 +11,15 @@ import { purchasesAPI } from '../services/api'
 import { GlassCard, LoadingSpinner, EmptyState, Badge } from '../components/common'
 
 const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6']
+
+const SORT_OPTIONS = [
+  { value: 'date-desc', label: 'Más reciente primero' },
+  { value: 'date-asc', label: 'Más antiguo primero' },
+  { value: 'amount-desc', label: 'Mayor monto primero' },
+  { value: 'amount-asc', label: 'Menor monto primero' },
+  { value: 'items-desc', label: 'Más productos primero' },
+  { value: 'items-asc', label: 'Menos productos primero' },
+]
 
 const BarChart = ({ data, valueKey = 'amount', labelKey = 'month', color = '#3b82f6', height = 160 }) => {
   if (!data?.length) {
@@ -99,8 +109,6 @@ const PieChart = ({ data = [] }) => {
 const ActivityCalendar = ({ data = [] }) => {
   if (!data.length) return <p className="text-slate-400 text-sm">Sin actividad registrada</p>
 
-  const maxCount = Math.max(...data.map((d) => d.count), 1)
-
   const level = (count) => {
     if (!count) return 'bg-slate-800/80'
     if (count === 1) return 'bg-emerald-900/80'
@@ -149,6 +157,16 @@ export default function Orders() {
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState(null)
 
+  // Filter state
+  const [searchText, setSearchText] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [amountMin, setAmountMin] = useState('')
+  const [amountMax, setAmountMax] = useState('')
+  const [selectedProviders, setSelectedProviders] = useState([])
+  const [sortValue, setSortValue] = useState('date-desc')
+  const [showFilters, setShowFilters] = useState(false)
+
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
@@ -166,6 +184,75 @@ export default function Orders() {
       setLoading(false)
     }
   }
+
+  const allProviders = useMemo(() =>
+    [...new Set(purchases.flatMap(p => p.providers || []))].sort()
+  , [purchases])
+
+  const filteredPurchases = useMemo(() => {
+    let result = [...purchases]
+
+    if (searchText.trim()) {
+      const q = searchText.trim().toLowerCase()
+      result = result.filter(p =>
+        p.sessionId?.toLowerCase().includes(q) ||
+        p.providers?.some(pr => pr.toLowerCase().includes(q)) ||
+        p.items?.some(item => item.title?.toLowerCase().includes(q))
+      )
+    }
+
+    if (dateFrom) {
+      result = result.filter(p => new Date(p.purchasedAt) >= new Date(dateFrom))
+    }
+    if (dateTo) {
+      const end = new Date(dateTo)
+      end.setHours(23, 59, 59, 999)
+      result = result.filter(p => new Date(p.purchasedAt) <= end)
+    }
+
+    if (amountMin !== '') result = result.filter(p => p.subtotal >= Number(amountMin))
+    if (amountMax !== '') result = result.filter(p => p.subtotal <= Number(amountMax))
+
+    if (selectedProviders.length > 0) {
+      result = result.filter(p => p.providers?.some(pr => selectedProviders.includes(pr)))
+    }
+
+    const [sortField, sortOrder] = sortValue.split('-')
+    result.sort((a, b) => {
+      const aVal = sortField === 'date'
+        ? new Date(a.purchasedAt).getTime()
+        : sortField === 'amount' ? a.subtotal : a.itemCount
+      const bVal = sortField === 'date'
+        ? new Date(b.purchasedAt).getTime()
+        : sortField === 'amount' ? b.subtotal : b.itemCount
+      return sortOrder === 'asc' ? aVal - bVal : bVal - aVal
+    })
+
+    return result
+  }, [purchases, searchText, dateFrom, dateTo, amountMin, amountMax, selectedProviders, sortValue])
+
+  const activeFilterCount = useMemo(() => [
+    searchText.trim(), dateFrom, dateTo, amountMin, amountMax, ...selectedProviders,
+  ].filter(Boolean).length, [searchText, dateFrom, dateTo, amountMin, amountMax, selectedProviders])
+
+  const filteredTotal = useMemo(() =>
+    filteredPurchases.reduce((sum, p) => sum + (p.subtotal || 0), 0)
+  , [filteredPurchases])
+
+  const clearAllFilters = () => {
+    setSearchText('')
+    setDateFrom('')
+    setDateTo('')
+    setAmountMin('')
+    setAmountMax('')
+    setSelectedProviders([])
+    setSortValue('date-desc')
+  }
+
+  const toggleProvider = (provider) =>
+    setSelectedProviders(prev =>
+      prev.includes(provider) ? prev.filter(p => p !== provider) : [...prev, provider]
+    )
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-96"><LoadingSpinner size="lg" /></div>
@@ -264,85 +351,365 @@ export default function Orders() {
         </>
       )}
 
+      {/* ── Registro detallado con filtros ── */}
       <div className="space-y-4">
-        <h2 className="text-2xl font-bold">Registro detallado</h2>
-        {purchases.map((purchase) => {
-          const isExpanded = expandedId === purchase._id
-          const purchasedDate = new Date(purchase.purchasedAt)
-          return (
-            <motion.div key={purchase._id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-              <GlassCard className="overflow-hidden">
-                <button type="button" onClick={() => setExpandedId(isExpanded ? null : purchase._id)} className="w-full p-6 text-left hover:bg-slate-800/30 transition-colors">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-lg font-bold">Sesión #{purchase.sessionId?.slice(0, 8).toUpperCase()}</h3>
-                        <Badge variant="success">Registrada</Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-4 mt-2 text-sm text-slate-400">
-                        <span className="flex items-center gap-1"><FiCalendar size={14} />{format(purchasedDate, "EEEE d 'de' MMMM yyyy", { locale: es })}</span>
-                        <span className="flex items-center gap-1"><FiClock size={14} />{format(purchasedDate, 'HH:mm:ss')}</span>
-                        <span className="flex items-center gap-1"><FiPackage size={14} />{purchase.itemCount} producto{purchase.itemCount !== 1 ? 's' : ''}</span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">{formatDistanceToNow(purchasedDate, { addSuffix: true, locale: es })}</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-xs text-slate-400">Total estimado</p>
-                        <p className="text-2xl font-bold text-gradient">${purchase.subtotal?.toFixed(2)}</p>
-                        <p className="text-xs text-slate-500 capitalize mt-1">{purchase.providers?.join(', ')}</p>
-                      </div>
-                      {isExpanded ? <FiChevronUp className="text-accent" /> : <FiChevronDown className="text-accent" />}
+
+        {/* Encabezado: título + contador + ordenar + botón filtros */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold">Registro detallado</h2>
+            <p className="text-sm text-slate-400 mt-0.5">
+              {filteredPurchases.length === purchases.length
+                ? `${purchases.length} sesión${purchases.length !== 1 ? 'es' : ''} · $${filteredTotal.toFixed(2)} total`
+                : (
+                  <span>
+                    <span className="text-accent font-semibold">{filteredPurchases.length}</span>
+                    {' de '}{purchases.length} sesiones · ${filteredTotal.toFixed(2)} filtrado
+                  </span>
+                )}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              value={sortValue}
+              onChange={e => setSortValue(e.target.value)}
+              className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/50 cursor-pointer"
+            >
+              {SORT_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => setShowFilters(v => !v)}
+              className={`relative flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                showFilters || activeFilterCount > 0
+                  ? 'bg-accent/20 border-accent text-accent'
+                  : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              <FiSliders size={15} />
+              Filtros
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-accent text-white text-[11px] flex items-center justify-center font-bold shadow">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Barra de búsqueda — siempre visible */}
+        <div className="relative">
+          <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+          <input
+            type="text"
+            placeholder="Buscar por nombre de producto, proveedor o ID de sesión..."
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            className="w-full bg-slate-800/60 border border-slate-700 rounded-xl pl-11 pr-10 py-3 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50 transition-all"
+          />
+          {searchText && (
+            <button
+              onClick={() => setSearchText('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              <FiX size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Panel de filtros colapsable */}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <GlassCard className="p-5 space-y-5">
+
+                {/* Fecha y monto */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Desde</label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={e => setDateFrom(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Hasta</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={e => setDateTo(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Monto mínimo ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={amountMin}
+                      onChange={e => setAmountMin(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Monto máximo ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Sin límite"
+                      value={amountMax}
+                      onChange={e => setAmountMax(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50"
+                    />
+                  </div>
+                </div>
+
+                {/* Chips de proveedor */}
+                {allProviders.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Proveedor</label>
+                    <div className="flex flex-wrap gap-2">
+                      {allProviders.map(provider => (
+                        <button
+                          key={provider}
+                          onClick={() => toggleProvider(provider)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all capitalize ${
+                            selectedProviders.includes(provider)
+                              ? 'bg-accent text-white border-accent shadow-neon'
+                              : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-accent/60 hover:text-accent'
+                          }`}
+                        >
+                          {provider}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                </button>
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-t border-slate-700">
-                      <div className="p-6 overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="text-slate-400 border-b border-slate-700">
-                              <th className="text-left py-2 pr-4">Producto</th>
-                              <th className="text-left py-2 pr-4">Proveedor</th>
-                              <th className="text-right py-2 pr-4">Cant.</th>
-                              <th className="text-right py-2 pr-4">Precio</th>
-                              <th className="text-right py-2 pr-4">Subtotal</th>
-                              <th className="text-right py-2">Enlace</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {purchase.items?.map((item, idx) => (
-                              <tr key={`${item.identifier}-${idx}`} className="border-b border-slate-800">
-                                <td className="py-3 pr-4">
-                                  <div className="flex items-center gap-3">
-                                    {item.image && <img src={item.image} alt="" className="w-10 h-10 rounded object-cover" />}
-                                    <span className="font-medium line-clamp-2">{item.title}</span>
-                                  </div>
-                                </td>
-                                <td className="py-3 pr-4 capitalize">{item.provider}</td>
-                                <td className="py-3 pr-4 text-right">{item.quantity}</td>
-                                <td className="py-3 pr-4 text-right">${item.price?.toFixed(2)}</td>
-                                <td className="py-3 pr-4 text-right font-semibold">${item.lineTotal?.toFixed(2)}</td>
-                                <td className="py-3 text-right">
-                                  {item.url ? (
-                                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-light inline-flex">
-                                      <FiExternalLink size={14} />
-                                    </a>
-                                  ) : '—'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </motion.div>
+                )}
+
+                {/* Pie del panel */}
+                <div className="flex items-center justify-between pt-1 border-t border-slate-700/50">
+                  <p className="text-xs text-slate-500">
+                    {activeFilterCount > 0
+                      ? `${activeFilterCount} filtro${activeFilterCount !== 1 ? 's' : ''} activo${activeFilterCount !== 1 ? 's' : ''}`
+                      : 'Ningún filtro aplicado'}
+                  </p>
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={clearAllFilters}
+                      className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-red-400 transition-colors"
+                    >
+                      <FiX size={13} /> Limpiar todos
+                    </button>
                   )}
-                </AnimatePresence>
+                </div>
               </GlassCard>
             </motion.div>
-          )
-        })}
+          )}
+        </AnimatePresence>
+
+        {/* Chips de filtros activos (cuando el panel está cerrado) */}
+        <AnimatePresence>
+          {activeFilterCount > 0 && !showFilters && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              className="flex flex-wrap gap-2 items-center"
+            >
+              <span className="text-xs text-slate-500 mr-1">Filtros activos:</span>
+
+              {searchText.trim() && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent/10 border border-accent/30 text-accent text-xs font-medium">
+                  <FiSearch size={11} />
+                  &ldquo;{searchText}&rdquo;
+                  <button onClick={() => setSearchText('')} className="ml-1 hover:text-white"><FiX size={11} /></button>
+                </span>
+              )}
+              {dateFrom && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent/10 border border-accent/30 text-accent text-xs font-medium">
+                  <FiCalendar size={11} /> Desde {dateFrom}
+                  <button onClick={() => setDateFrom('')} className="ml-1 hover:text-white"><FiX size={11} /></button>
+                </span>
+              )}
+              {dateTo && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent/10 border border-accent/30 text-accent text-xs font-medium">
+                  <FiCalendar size={11} /> Hasta {dateTo}
+                  <button onClick={() => setDateTo('')} className="ml-1 hover:text-white"><FiX size={11} /></button>
+                </span>
+              )}
+              {amountMin && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent/10 border border-accent/30 text-accent text-xs font-medium">
+                  <FiDollarSign size={11} /> Mín ${amountMin}
+                  <button onClick={() => setAmountMin('')} className="ml-1 hover:text-white"><FiX size={11} /></button>
+                </span>
+              )}
+              {amountMax && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent/10 border border-accent/30 text-accent text-xs font-medium">
+                  <FiDollarSign size={11} /> Máx ${amountMax}
+                  <button onClick={() => setAmountMax('')} className="ml-1 hover:text-white"><FiX size={11} /></button>
+                </span>
+              )}
+              {selectedProviders.map(p => (
+                <span key={p} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent/10 border border-accent/30 text-accent text-xs font-medium capitalize">
+                  <FiGlobe size={11} /> {p}
+                  <button onClick={() => toggleProvider(p)} className="ml-1 hover:text-white"><FiX size={11} /></button>
+                </span>
+              ))}
+
+              <button
+                onClick={clearAllFilters}
+                className="text-xs text-slate-500 hover:text-red-400 underline underline-offset-2 transition-colors ml-1"
+              >
+                Limpiar todo
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Sin resultados */}
+        {filteredPurchases.length === 0 ? (
+          <GlassCard className="p-12 text-center">
+            <FiSearch className="mx-auto mb-3 text-slate-600" size={40} />
+            <p className="text-slate-300 font-semibold text-lg">Sin resultados</p>
+            <p className="text-slate-500 text-sm mt-1">
+              Ninguna sesión coincide con los filtros aplicados.
+            </p>
+            <button
+              onClick={clearAllFilters}
+              className="mt-5 px-5 py-2 rounded-lg bg-slate-700 text-slate-200 text-sm hover:bg-slate-600 transition-colors"
+            >
+              Limpiar filtros
+            </button>
+          </GlassCard>
+        ) : (
+          filteredPurchases.map((purchase) => {
+            const isExpanded = expandedId === purchase._id
+            const purchasedDate = new Date(purchase.purchasedAt)
+            return (
+              <motion.div key={purchase._id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                <GlassCard className="overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : purchase._id)}
+                    className="w-full p-6 text-left hover:bg-slate-800/30 transition-colors"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-lg font-bold">Sesión #{purchase.sessionId?.slice(0, 8).toUpperCase()}</h3>
+                          <Badge variant="success">Registrada</Badge>
+                          {purchase.providers?.map(pr => (
+                            <span
+                              key={pr}
+                              className="px-2 py-0.5 rounded-full bg-slate-700/80 text-slate-300 text-xs capitalize border border-slate-600"
+                            >
+                              {pr}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex flex-wrap gap-4 mt-2 text-sm text-slate-400">
+                          <span className="flex items-center gap-1">
+                            <FiCalendar size={14} />
+                            {format(purchasedDate, "EEEE d 'de' MMMM yyyy", { locale: es })}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <FiClock size={14} />
+                            {format(purchasedDate, 'HH:mm:ss')}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <FiPackage size={14} />
+                            {purchase.itemCount} producto{purchase.itemCount !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {formatDistanceToNow(purchasedDate, { addSuffix: true, locale: es })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-xs text-slate-400">Total estimado</p>
+                          <p className="text-2xl font-bold text-gradient">${purchase.subtotal?.toFixed(2)}</p>
+                          <p className="text-xs text-slate-500 capitalize mt-1">{purchase.providers?.join(', ')}</p>
+                        </div>
+                        {isExpanded ? <FiChevronUp className="text-accent" /> : <FiChevronDown className="text-accent" />}
+                      </div>
+                    </div>
+                  </button>
+
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="border-t border-slate-700"
+                      >
+                        <div className="p-6 overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-slate-400 border-b border-slate-700">
+                                <th className="text-left py-2 pr-4">Producto</th>
+                                <th className="text-left py-2 pr-4">Proveedor</th>
+                                <th className="text-right py-2 pr-4">Cant.</th>
+                                <th className="text-right py-2 pr-4">Precio</th>
+                                <th className="text-right py-2 pr-4">Subtotal</th>
+                                <th className="text-right py-2">Enlace</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {purchase.items?.map((item, idx) => (
+                                <tr key={`${item.identifier}-${idx}`} className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
+                                  <td className="py-3 pr-4">
+                                    <div className="flex items-center gap-3">
+                                      {item.image && (
+                                        <img src={item.image} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
+                                      )}
+                                      <span className="font-medium line-clamp-2">{item.title}</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 pr-4 capitalize">
+                                    <span className="px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300 text-xs border border-slate-600">
+                                      {item.provider}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 pr-4 text-right">{item.quantity}</td>
+                                  <td className="py-3 pr-4 text-right">${item.price?.toFixed(2)}</td>
+                                  <td className="py-3 pr-4 text-right font-semibold">${item.lineTotal?.toFixed(2)}</td>
+                                  <td className="py-3 text-right">
+                                    {item.url ? (
+                                      <a
+                                        href={item.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-accent hover:text-accent-light inline-flex"
+                                      >
+                                        <FiExternalLink size={14} />
+                                      </a>
+                                    ) : '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </GlassCard>
+              </motion.div>
+            )
+          })
+        )}
       </div>
     </div>
   )
