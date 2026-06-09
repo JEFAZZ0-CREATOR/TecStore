@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { FiZap, FiClock, FiTrendingDown } from 'react-icons/fi'
 import { productsAPI } from '../services/api'
 import { useCartStore } from '../store/store'
+import { useFavorites } from '../hooks/useFavorites'
 import { ProductGrid } from '../components/product/ProductCard'
 import { GlassCard, Button } from '../components/common'
 
@@ -10,6 +11,7 @@ export default function Deals() {
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
   const { addItem } = useCartStore()
+  const { toggleFavorite, isFavorite } = useFavorites()
 
   useEffect(() => {
     loadDeals()
@@ -81,7 +83,8 @@ export default function Deals() {
         products={deals}
         loading={loading}
         onAddCart={addItem}
-        onToggleFavorite={(id) => console.log('Toggle favorite:', id)}
+        onToggleFavorite={toggleFavorite}
+        isFavoriteFn={isFavorite}
       />
     </div>
   )

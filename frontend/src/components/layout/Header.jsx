@@ -1,13 +1,15 @@
 import React, { useRef, useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { FiMenu, FiX, FiShoppingCart, FiSearch, FiUser, FiHeart } from 'react-icons/fi'
 import { useAuthStore, useCartStore, useUiStore } from '../../store/store'
+import { useFavorites } from '../../hooks/useFavorites'
 
 export const Header = () => {
   const { sidebarOpen, toggleSidebar, searchOpen, toggleSearch } = useUiStore()
   const { user, logout } = useAuthStore()
   const { itemCount } = useCartStore()
+  const { count: favoriteCount } = useFavorites()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
 
@@ -68,30 +70,28 @@ export const Header = () => {
           </motion.button>
 
           {/* Favorites */}
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            className="btn-icon relative"
-            title="Favoritos"
-          >
-            <FiHeart size={20} />
-            <span className="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-              0
-            </span>
-          </motion.button>
+          <Link to="/favorites" title="Favoritos">
+            <motion.span whileTap={{ scale: 0.9 }} className="btn-icon relative inline-flex">
+              <FiHeart size={20} />
+              {favoriteCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full min-w-4 h-4 px-1 flex items-center justify-center">
+                  {favoriteCount}
+                </span>
+              )}
+            </motion.span>
+          </Link>
 
           {/* Cart */}
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            className="btn-icon relative"
-            title="Carrito"
-          >
-            <FiShoppingCart size={20} />
-            {itemCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-accent text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                {itemCount}
-              </span>
-            )}
-          </motion.button>
+          <Link to="/cart" title="Carrito">
+            <motion.span whileTap={{ scale: 0.9 }} className="btn-icon relative inline-flex">
+              <FiShoppingCart size={20} />
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-accent text-white text-xs rounded-full min-w-4 h-4 px-1 flex items-center justify-center">
+                  {itemCount}
+                </span>
+              )}
+            </motion.span>
+          </Link>
 
           {/* User Menu */}
           {user ? (
@@ -126,7 +126,7 @@ export const Header = () => {
                   Preferencias
                 </Link>
                 <Link to="/orders" onClick={() => setMenuOpen(false)} className="block px-4 py-2 hover:bg-slate-700">
-                  Mis Órdenes
+                  Historial de Compras
                 </Link>
                 <button
                   onClick={() => {

@@ -93,8 +93,8 @@ export const reviewsAPI = {
 export const favoritesAPI = {
   getAll: () => API.get('/favorites').then(unwrapResponse),
   add: (payload) => API.post('/favorites', payload).then(unwrapResponse),
-  remove: (productId) => API.delete(`/favorites/${productId}`).then(unwrapResponse),
-  isFavorite: (productId) => API.get(`/favorites/check/${productId}`).then(unwrapResponse),
+  remove: (identifier) => API.delete(`/favorites/${encodeURIComponent(identifier)}`).then(unwrapResponse),
+  isFavorite: (identifier) => API.get(`/favorites/check/${encodeURIComponent(identifier)}`).then(unwrapResponse),
 }
 
 // CART ENDPOINTS
@@ -124,7 +124,16 @@ export const paymentsAPI = {
 
 // PRICE HISTORY ENDPOINTS
 export const priceHistoryAPI = {
-  getHistory: (productId) => API.get(`/price-history/${productId}`).then(unwrapResponse),
+  getSummary: () => API.get('/price-history/summary').then(unwrapResponse),
+  getHistory: (identifier) => API.get(`/price-history/${encodeURIComponent(identifier)}`).then(unwrapResponse),
+}
+
+// PURCHASE HISTORY ENDPOINTS
+export const purchasesAPI = {
+  register: (payload) => API.post('/purchases', payload).then(unwrapResponse),
+  getAll: (params) => API.get('/purchases', { params }).then(unwrapResponse),
+  getById: (id) => API.get(`/purchases/${id}`).then(unwrapResponse),
+  getStats: () => API.get('/purchases/stats').then(unwrapResponse),
 }
 
 export default API

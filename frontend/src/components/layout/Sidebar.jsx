@@ -18,7 +18,7 @@ const menuItems = [
 
 const userMenuItems = [
   { icon: FiUser, label: 'Mi Perfil', path: '/profile' },
-  { icon: FiShoppingBag, label: 'Mis Órdenes', path: '/orders' },
+  { icon: FiShoppingBag, label: 'Historial de Compras', path: '/orders' },
   { icon: FiSettings, label: 'Configuración', path: '/settings' },
 ]
 

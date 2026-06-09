@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { FiShoppingCart, FiHeart, FiStar, FiTruck, FiShield } from 'react-icons/fi'
+import { FiShoppingCart, FiHeart, FiStar, FiTruck, FiShield, FiExternalLink } from 'react-icons/fi'
+import toast from 'react-hot-toast'
 import { productsAPI, reviewsAPI } from '../services/api'
 import { useCartStore } from '../store/store'
+import { useFavorites } from '../hooks/useFavorites'
+import { getProductDisplayName } from '../utils/product'
 import { GlassCard, Button, LoadingSpinner, Badge } from '../components/common'
 
 export default function ProductDetail() {
@@ -14,6 +17,7 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1)
   const [activeImage, setActiveImage] = useState(0)
   const { addItem } = useCartStore()
+  const { toggleFavorite, isFavorite } = useFavorites()
 
   useEffect(() => {
     loadProduct()
@@ -35,7 +39,7 @@ export default function ProductDetail() {
   const loadReviews = async () => {
     try {
       const data = await reviewsAPI.getByProduct(productId)
-      setReviews(data.reviews || [])
+      setReviews(Array.isArray(data) ? data : (data?.reviews || []))
     } catch (error) {
       console.error('Error loading reviews:', error)
     }
@@ -53,7 +57,10 @@ export default function ProductDetail() {
     return <div className="text-center py-12">Producto no encontrado</div>
   }
 
-  const images = product.images || [product.image, product.image, product.image]
+  const productName = getProductDisplayName(product)
+  const images = product.images || [product.image].filter(Boolean)
+  const displayImages = images.length ? images : ['https://via.placeholder.com/500']
+  const favoriteActive = isFavorite(product)
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -66,8 +73,8 @@ export default function ProductDetail() {
         >
           <div className="relative w-full h-96 bg-slate-800 rounded-xl overflow-hidden">
             <img
-              src={images[activeImage] || 'https://via.placeholder.com/500'}
-              alt={product.name}
+              src={displayImages[activeImage] || 'https://via.placeholder.com/500'}
+              alt={productName}
               className="w-full h-full object-cover"
             />
             {product.discount && (
@@ -77,7 +84,7 @@ export default function ProductDetail() {
             )}
           </div>
           <div className="grid grid-cols-4 gap-2">
-            {images.map((img, i) => (
+            {displayImages.map((img, i) => (
               <motion.button
                 key={i}
                 onClick={() => setActiveImage(i)}
@@ -99,7 +106,7 @@ export default function ProductDetail() {
           className="space-y-6"
         >
           <div>
-            <h1 className="text-4xl font-bold mb-2">{product.name}</h1>
+            <h1 className="text-4xl font-bold mb-2">{productName}</h1>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1">
                 {[...Array(5)].map((_, i) => (
@@ -124,8 +131,8 @@ export default function ProductDetail() {
             <p className="text-4xl font-bold text-gradient">
               ${product.price}
             </p>
-            {product.stock <= 5 && (
-              <p className="text-warning font-semibold">Solo {product.stock} en stock</p>
+            {product.provider && (
+              <p className="text-sm text-accent capitalize">Proveedor: {product.provider}</p>
             )}
           </div>
 
@@ -136,12 +143,11 @@ export default function ProductDetail() {
                 <input
                   type="number"
                   min="1"
-                  max={product.stock}
+                  max={99}
                   value={quantity}
-                  onChange={(e) => setQuantity(parseInt(e.target.value))}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
                   className="input-field w-20 text-center"
                 />
-                <span className="text-slate-400">{product.stock} disponibles</span>
               </div>
             </div>
 
@@ -149,14 +155,32 @@ export default function ProductDetail() {
               variant="primary"
               size="lg"
               className="w-full flex items-center justify-center gap-2"
-              onClick={() => addItem({ ...product, quantity })}
+              onClick={() => {
+                addItem({ ...product, name: productName, title: productName, quantity })
+                toast.success('Añadido al carrito')
+              }}
             >
               <FiShoppingCart /> Añadir al Carrito
             </Button>
 
-            <Button variant="secondary" className="w-full flex items-center justify-center gap-2">
-              <FiHeart /> Añadir a Favoritos
+            <Button
+              variant="secondary"
+              className={`w-full flex items-center justify-center gap-2 ${favoriteActive ? 'text-danger' : ''}`}
+              onClick={() => toggleFavorite({ ...product, name: productName, title: productName })}
+            >
+              <FiHeart fill={favoriteActive ? 'currentColor' : 'none'} />
+              {favoriteActive ? 'Quitar de Favoritos' : 'Añadir a Favoritos'}
             </Button>
+
+            {product.url && product.url.startsWith('http') && (
+              <Button
+                variant="secondary"
+                className="w-full flex items-center justify-center gap-2"
+                onClick={() => window.open(product.url, '_blank', 'noopener,noreferrer')}
+              >
+                <FiExternalLink /> Ver en tienda externa
+              </Button>
+            )}
           </div>
 
           {/* Features */}

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { FiTrendingUp, FiTag, FiZap, FiPackage, FiSearch } from 'react-icons/fi'
 import { searchAPI } from '../services/api'
 import { useCartStore } from '../store/store'
+import { useFavorites } from '../hooks/useFavorites'
 import { ProductGrid } from '../components/product/ProductCard'
 import { GlassCard, Button, Input } from '../components/common'
 
@@ -30,6 +31,7 @@ export default function Home() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchMessage, setSearchMessage] = useState('')
   const { addItem } = useCartStore()
+  const { toggleFavorite, isFavorite } = useFavorites()
   const navigate = useNavigate()
   const defaultQuery = 'componentes pc en oferta'
 
@@ -196,7 +198,8 @@ export default function Home() {
               products={searchResults}
               loading={searchLoading}
               onAddCart={addItem}
-              onToggleFavorite={(id) => console.log('Toggle favorite:', id)}
+              onToggleFavorite={toggleFavorite}
+              isFavoriteFn={isFavorite}
             />
           </>
         ) : (
@@ -204,7 +207,8 @@ export default function Home() {
             products={defaultProducts}
             loading={loading}
             onAddCart={addItem}
-            onToggleFavorite={(id) => console.log('Toggle favorite:', id)}
+            onToggleFavorite={toggleFavorite}
+            isFavoriteFn={isFavorite}
           />
         )}
       </motion.section>
