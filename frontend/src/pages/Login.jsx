@@ -6,6 +6,13 @@ import { authAPI } from '../services/api'
 import { useAuthStore } from '../store/store'
 import { Input, Button, GlassCard } from '../components/common'
 
+const ADMIN_EMAILS = [
+  'luischv1979@gmail.com',
+  'derek.vallejo.alp@cbtis258.edu.mx',
+  'orlando.torres.alp@cbtis258.edu.mx',
+  'juanaldair.ramos.alp@cbtis258.edu.mx',
+]
+
 export default function Login() {
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [error, setError] = useState(null)
@@ -27,7 +34,9 @@ export default function Login() {
       const res = await authAPI.login(formData)
       setToken(res.token)
       setUser(res.user)
-      navigate('/home')
+      const email = (res.user?.email ?? '').toLowerCase()
+      const isAdmin = res.user?.role === 'admin' || ADMIN_EMAILS.includes(email)
+      navigate(isAdmin ? '/admin' : '/home')
     } catch (err) {
       setError(err.response?.data?.message || 'Error al iniciar sesión')
     } finally {

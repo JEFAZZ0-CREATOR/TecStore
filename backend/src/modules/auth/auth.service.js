@@ -27,6 +27,8 @@ exports.loginUser = async ({ email, password }) => {
   if (!user || !comparePassword(password, user.password)) {
     throw new AppError('Email o contraseña incorrectos', 401);
   }
+  user.lastLoginAt = new Date();
+  await user.save({ validateBeforeSave: false });
   const token = signToken(user);
   return { user: user.toJSON(), token };
 };

@@ -7,6 +7,7 @@ const authSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, default: 'customer', enum: ['admin', 'customer'] },
   avatarUrl: { type: String, default: null },
+  lastLoginAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 }, { versionKey: false });
 
