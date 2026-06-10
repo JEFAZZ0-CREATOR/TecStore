@@ -52,11 +52,11 @@ const Chip = ({ children, onRemove }) => (
 const FilterSection = ({ title, badge = 0, defaultOpen = true, children }) => {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="border-b border-slate-700/50 pb-4 last:border-0 last:pb-0">
+    <div className="border-b border-white/8 pb-4 last:border-0 last:pb-0">
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between py-2 text-sm font-semibold hover:text-accent transition-colors group"
+        className="w-full flex items-center justify-between py-2 text-sm font-semibold hover:text-accent-light transition-colors group"
       >
         <span className="flex items-center gap-2">
           {title}
@@ -238,59 +238,61 @@ export default function Store() {
 
       {/* ── Page header ────────────────────────────────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between gap-4 flex-wrap"
+        className="relative overflow-hidden rounded-3xl border border-white/10 px-6 py-5"
+        style={{ background: 'linear-gradient(135deg,rgba(109,40,217,.18) 0%,rgba(59,130,246,.12) 50%,rgba(34,211,238,.08) 100%)' }}
       >
-        <div>
-          <h1 className="text-4xl font-bold text-gradient">Tienda</h1>
-          <p className="text-slate-400 mt-1 text-sm">
-            {loading
-              ? 'Buscando productos...'
-              : (
-                <>
-                  <span className="text-white font-medium">{displayCount.toLocaleString()}</span>
-                  {' '}resultado{displayCount !== 1 ? 's' : ''}
-                  {searchTerm && <> para <span className="text-accent">"{searchTerm}"</span></>}
-                </>
-              )}
-          </p>
-        </div>
+        {/* Decorative orb */}
+        <div className="absolute -right-12 -top-12 w-48 h-48 rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle,rgba(109,40,217,.25),transparent 70%)' }} />
 
-        <div className="flex items-center gap-2">
-          {/* View toggle */}
-          <div className="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-1 gap-0.5">
-            <button
-              onClick={() => setViewMode('grid')}
-              title="Cuadrícula"
-              className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-accent text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
-            >
-              <FiGrid size={15} />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              title="Lista detallada"
-              className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-accent text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
-            >
-              <FiList size={15} />
-            </button>
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold font-display text-white leading-none">
+              Tienda TecStore
+            </h1>
+            <p className="text-slate-400 mt-1.5 text-sm">
+              {loading
+                ? <span className="flex items-center gap-2"><span className="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin inline-block" /> Buscando productos…</span>
+                : <>
+                    <span className="text-white font-semibold">{displayCount.toLocaleString()}</span>
+                    {' '}resultado{displayCount !== 1 ? 's' : ''}
+                    {searchTerm && <> para <span className="text-accent-light">"{searchTerm}"</span></>}
+                  </>
+              }
+            </p>
           </div>
 
-          {/* Filters button */}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2"
-          >
-            <FiSliders size={14} />
-            Filtros
-            {activeFilterCount > 0 && (
-              <span className="bg-accent text-white text-xs rounded-full w-4 h-4 flex items-center justify-center leading-none">
-                {activeFilterCount}
-              </span>
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* View toggle */}
+            <div className="flex items-center bg-white/6 border border-white/12 rounded-xl p-1 gap-0.5">
+              <button onClick={() => setViewMode('grid')} title="Cuadrícula"
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>
+                <FiGrid size={14} />
+              </button>
+              <button onClick={() => setViewMode('list')} title="Lista"
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-accent text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>
+                <FiList size={14} />
+              </button>
+            </div>
+
+            {/* Filters button */}
+            <button onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium border transition-all ${
+                activeFilterCount > 0 || showFilters
+                  ? 'bg-accent/15 border-accent/40 text-accent-light'
+                  : 'bg-white/6 border-white/12 text-slate-400 hover:text-white hover:bg-white/10'
+              }`}>
+              <FiSliders size={14} />
+              Filtros
+              {activeFilterCount > 0 && (
+                <span className="bg-accent text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </motion.div>
 
@@ -368,21 +370,22 @@ export default function Store() {
         {/* ── Filter sidebar ─────────────────────────────────────────────────── */}
         <aside
           className={`
-            fixed inset-y-0 left-0 w-72 bg-secondary border-r border-slate-700
-            z-40 overflow-y-auto overscroll-contain
+            fixed inset-y-0 left-0 w-72 z-40 overflow-y-auto overscroll-contain
             transition-transform duration-300 ease-in-out
             ${showFilters ? 'translate-x-0' : '-translate-x-full'}
             lg:relative lg:inset-auto lg:w-auto lg:bg-transparent lg:border-0
             lg:z-auto lg:overflow-visible lg:translate-x-0 lg:block
           `}
+          style={{ background: 'rgba(8,8,22,.98)' }}
         >
           <div className="p-5 lg:p-0">
-            <div className="card p-5 space-y-4 lg:sticky lg:top-20">
+            <div className="p-4 space-y-4 rounded-2xl border border-white/10 lg:sticky lg:top-6"
+              style={{ background: 'linear-gradient(145deg,rgba(18,18,50,.95),rgba(10,10,28,.98))' }}>
 
               {/* Sidebar header */}
               <div className="flex items-center justify-between pb-1">
-                <h3 className="font-bold text-xs uppercase tracking-widest text-slate-400">
-                  Filtros
+                <h3 className="font-bold text-xs uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+                  <FiSliders size={12} /> Filtros
                 </h3>
                 <div className="flex items-center gap-3">
                   {activeFilterCount > 0 && (
@@ -405,14 +408,14 @@ export default function Store() {
               </div>
 
               {/* ── Quick presets ───────────────────────────────────────────── */}
-              <div className="flex flex-wrap gap-2 pb-4 border-b border-slate-700/50">
+              <div className="flex flex-wrap gap-2 pb-4 border-b border-white/8">
                 <button
                   type="button"
                   onClick={() => setOnlyDiscount(v => !v)}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                     onlyDiscount
                       ? 'bg-rose-500/20 border-rose-400/50 text-rose-400'
-                      : 'border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white'
+                      : 'border-white/12 text-slate-500 hover:border-white/25 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   <FiTag size={11} /> Con descuento
@@ -423,7 +426,7 @@ export default function Store() {
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                     minRating >= 4
                       ? 'bg-yellow-400/20 border-yellow-400/50 text-yellow-400'
-                      : 'border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white'
+                      : 'border-white/12 text-slate-500 hover:border-white/25 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   <FiStar size={11} fill={minRating >= 4 ? 'currentColor' : 'none'} /> 4★ o más
@@ -434,7 +437,7 @@ export default function Store() {
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                     onlyInStock
                       ? 'bg-green-500/20 border-green-400/50 text-green-400'
-                      : 'border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white'
+                      : 'border-white/12 text-slate-500 hover:border-white/25 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   <FiPackage size={11} /> En stock
@@ -510,7 +513,7 @@ export default function Store() {
                         className={`flex items-center gap-2.5 cursor-pointer rounded-lg px-2 py-1.5 transition-colors border ${
                           selected
                             ? `${prov.bg} ${prov.border}`
-                            : 'border-transparent hover:bg-slate-800'
+                            : 'border-transparent hover:bg-white/6'
                         }`}
                       >
                         <input
@@ -544,7 +547,7 @@ export default function Store() {
                       className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs transition-colors ${
                         minRating === stars
                           ? 'bg-yellow-400/15 text-yellow-300 border border-yellow-400/30'
-                          : 'hover:bg-slate-800 text-slate-400 border border-transparent'
+                          : 'hover:bg-white/6 text-slate-400 border border-transparent'
                       }`}
                     >
                       <div className="flex text-yellow-400">
@@ -653,7 +656,7 @@ export default function Store() {
                 defaultOpen={false}
               >
                 <div className="space-y-2">
-                  <label className="flex items-center gap-2.5 cursor-pointer rounded-lg px-2 py-2 hover:bg-slate-800 transition-colors group">
+                  <label className="flex items-center gap-2.5 cursor-pointer rounded-lg px-2 py-2 hover:bg-white/6 transition-colors group">
                     <input
                       type="checkbox"
                       checked={onlyDiscount}
@@ -665,7 +668,7 @@ export default function Store() {
                       Solo con descuento
                     </span>
                   </label>
-                  <label className="flex items-center gap-2.5 cursor-pointer rounded-lg px-2 py-2 hover:bg-slate-800 transition-colors group">
+                  <label className="flex items-center gap-2.5 cursor-pointer rounded-lg px-2 py-2 hover:bg-white/6 transition-colors group">
                     <input
                       type="checkbox"
                       checked={onlyInStock}
@@ -691,7 +694,7 @@ export default function Store() {
                       className={`w-full flex items-center justify-between px-2 py-2 rounded-lg text-xs transition-colors ${
                         sortBy === opt.value
                           ? 'bg-accent/15 text-accent border border-accent/30'
-                          : 'hover:bg-slate-800 text-slate-400 border border-transparent'
+                          : 'hover:bg-white/6 text-slate-400 border border-transparent'
                       }`}
                     >
                       {opt.label}
@@ -709,30 +712,24 @@ export default function Store() {
         <div className="lg:col-span-3">
 
           {/* Sort pills + per-page row */}
-          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+          <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
             <div className="flex items-center gap-1.5 overflow-x-auto flex-1 pb-0.5">
               {SORT_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setSortBy(opt.value)}
-                  className={`px-3 py-1 rounded-full text-xs flex-shrink-0 font-medium transition-all border ${
+                <button key={opt.value} type="button" onClick={() => setSortBy(opt.value)}
+                  className={`px-3 py-1.5 rounded-xl text-xs flex-shrink-0 font-medium transition-all border ${
                     sortBy === opt.value
-                      ? 'bg-accent border-accent text-white shadow-[0_0_12px_rgba(99,102,241,0.35)]'
-                      : 'border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white'
-                  }`}
-                >
+                      ? 'bg-accent/20 border-accent/50 text-accent-light shadow-[0_0_10px_rgba(109,40,217,0.25)]'
+                      : 'border-white/10 text-slate-500 hover:border-white/20 hover:text-white hover:bg-white/5'
+                  }`}>
                   {opt.label}
                 </button>
               ))}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="text-xs text-slate-500">Mostrar</span>
-              <select
-                value={perPage}
-                onChange={(e) => setPerPage(Number(e.target.value))}
-                className="input-field text-xs py-1 px-2 w-auto"
-              >
+              <span className="text-xs text-slate-600">Mostrar</span>
+              <select value={perPage} onChange={e => setPerPage(Number(e.target.value))}
+                className="text-xs py-1.5 px-2.5 rounded-xl bg-white/5 border border-white/10 text-white
+                           focus:outline-none focus:border-accent/40 transition-colors">
                 <option value={12}>12</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
@@ -745,7 +742,7 @@ export default function Store() {
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-xs text-slate-500 mb-3 bg-slate-800/50 px-3 py-2 rounded-lg border border-slate-700"
+              className="text-xs text-slate-500 mb-3 bg-white/4 px-3 py-2 rounded-xl border border-white/8"
             >
               Mostrando{' '}
               <span className="text-white font-semibold">{displayedProducts.length}</span>
@@ -770,14 +767,14 @@ export default function Store() {
               <button
                 onClick={() => setPage(1)}
                 disabled={page === 1}
-                className="px-2 py-1.5 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors border border-slate-700"
+                className="px-2 py-1.5 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors border border-white/10"
               >
                 «
               </button>
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1.5 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors border border-slate-700"
+                className="px-3 py-1.5 rounded-lg text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/8 transition-colors border border-white/10"
               >
                 ‹ Anterior
               </button>
@@ -793,7 +790,7 @@ export default function Store() {
                       <>
                         <button
                           onClick={() => setPage(1)}
-                          className="px-3 py-1.5 rounded-lg text-sm hover:bg-slate-700 border border-slate-700"
+                          className="px-3 py-1.5 rounded-lg text-sm hover:bg-white/8 border border-white/10"
                         >
                           1
                         </button>
@@ -807,7 +804,7 @@ export default function Store() {
                         className={`px-3 py-1.5 rounded-lg text-sm border transition-all ${
                           p === page
                             ? 'bg-accent border-accent text-white font-bold shadow-[0_0_12px_rgba(99,102,241,0.35)]'
-                            : 'border-slate-700 hover:bg-slate-700 hover:border-slate-500'
+                            : 'border-white/10 hover:bg-white/8 hover:border-white/20'
                         }`}
                       >
                         {p}
@@ -818,7 +815,7 @@ export default function Store() {
                         <span className="px-1 text-slate-500 text-sm">…</span>
                         <button
                           onClick={() => setPage(page + delta + 1)}
-                          className="px-3 py-1.5 rounded-lg text-sm hover:bg-slate-700 border border-slate-700"
+                          className="px-3 py-1.5 rounded-lg text-sm hover:bg-white/8 border border-white/10"
                         >
                           {page + delta + 1}
                         </button>
