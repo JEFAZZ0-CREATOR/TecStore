@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast'
 import './styles.css'
 
 // Lazy load pages
+const Landing = lazy(() => import('./pages/Landing'))
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
 const Home = lazy(() => import('./pages/Home'))
@@ -34,13 +35,13 @@ const LoadingFallback = () => (
   </div>
 )
 
-// Protected Route Component
+// Protected Route Component — also applies the page-level content wrapper
 const ProtectedRoute = ({ children }) => {
   const token = useAuthStore((state) => state.token)
   if (!token) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/" replace />
   }
-  return children
+  return <div className="max-w-7xl mx-auto px-4 py-6">{children}</div>
 }
 
 export default function App() {
@@ -81,15 +82,15 @@ export default function App() {
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-4 py-6">
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
                 {/* Public Routes */}
+                <Route path="/" element={token ? <Navigate to="/home" replace /> : <Landing />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
 
                 {/* Protected Routes */}
-                <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+                <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/products" element={<ProtectedRoute><Store /></ProtectedRoute>} />
                 <Route path="/products/:productId" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
                 <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
@@ -99,11 +100,10 @@ export default function App() {
                 <Route path="/price-history" element={<ProtectedRoute><PriceHistory /></ProtectedRoute>} />
                 <Route path="/deals" element={<ProtectedRoute><Deals /></ProtectedRoute>} />
 
-                {/* Catch all - redirect to login if no token */}
-                <Route path="*" element={<Navigate to={token ? "/" : "/login"} replace />} />
+                {/* Catch all */}
+                <Route path="*" element={<Navigate to={token ? "/home" : "/"} replace />} />
               </Routes>
             </Suspense>
-          </div>
         </main>
       </div>
 

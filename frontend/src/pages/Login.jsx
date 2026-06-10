@@ -27,7 +27,7 @@ export default function Login() {
       const res = await authAPI.login(formData)
       setToken(res.token)
       setUser(res.user)
-      navigate('/')
+      navigate('/home')
     } catch (err) {
       setError(err.response?.data?.message || 'Error al iniciar sesión')
     } finally {

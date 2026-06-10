@@ -52,7 +52,7 @@ export const Header = () => {
     >
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 group flex-shrink-0">
+        <Link to="/home" className="flex items-center gap-2 group flex-shrink-0">
           <div className="relative w-8 h-8 bg-gradient-accent rounded-lg flex items-center justify-center text-white font-bold text-sm group-hover:shadow-neon transition-shadow">
             TS
           </div>

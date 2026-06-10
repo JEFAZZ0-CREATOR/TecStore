@@ -8,7 +8,7 @@ import {
 import { useAuthStore, useUiStore } from '../../store/store'
 
 const menuItems = [
-  { icon: FiHome, label: 'Inicio', path: '/' },
+  { icon: FiHome, label: 'Inicio', path: '/home' },
   { icon: FiShoppingBag, label: 'Productos', path: '/products' },
   { icon: FiShoppingCart, label: 'Carrito', path: '/cart' },
   { icon: FiHeart, label: 'Favoritos', path: '/favorites' },
