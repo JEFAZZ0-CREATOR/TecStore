@@ -1,37 +1,5 @@
-const providers = require('../../providers');
 const Product = require('../products/product.model');
-
-const DEAL_QUERIES = [
-  'laptop oferta',
-  'gpu descuento',
-  'monitor gaming rebaja',
-  'cpu intel amd oferta',
-  'ssd disco duro oferta',
-  'memoria ram oferta',
-  'teclado mouse gamer descuento',
-];
-
-const normalize = (raw) => ({
-  id: String(raw.id || raw._id || `${raw.title}-${raw.price}`),
-  title: raw.title,
-  name: raw.title,
-  description: raw.description || raw.title || '',
-  provider: raw.provider,
-  image: raw.image || raw.thumbnail || '',
-  price: raw.price || 0,
-  originalPrice: raw.originalPrice || null,
-  discount:
-    raw.discount ||
-    (raw.originalPrice && raw.price
-      ? Math.round(((raw.originalPrice - raw.price) / raw.originalPrice) * 100)
-      : 0),
-  rating: raw.rating || 0,
-  available: raw.available ?? true,
-  url: raw.url,
-  category: raw.category || 'componentes',
-  specs: raw.specs || {},
-  source: raw.source || 'external',
-});
+const { normalizeProduct } = require('../search/search.normalizer');
 
 const cache = new Map();
 
@@ -39,38 +7,41 @@ exports.getDeals = async ({ minDiscount = 0, sort = 'discount', limit = 60 } = {
   const cacheKey = `deals:${minDiscount}:${sort}:${limit}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey);
 
-  // 1. Productos locales con descuento (rápido, siempre disponible)
+  // 1. Productos locales con descuento (fuente principal)
   const localProducts = await Product.find({ discount: { $gt: minDiscount } })
     .sort({ discount: -1 })
-    .limit(50)
     .lean();
 
-  // 2. Providers externos en paralelo
-  const externalResults = await Promise.allSettled(
-    DEAL_QUERIES.map((q) => providers.searchAll({ q, perPage: 20 }))
-  );
-
-  const seen = new Set();
+  const seen   = new Set();
   const merged = [];
 
   const push = (raw) => {
-    const p = normalize(raw);
-    if (!seen.has(p.id) && p.price > 0) {
-      seen.add(p.id);
+    const p   = normalizeProduct(raw);
+    const key = String(p.id || p._id || `${p.title}-${p.price}`);
+    if (!seen.has(key) && p.price > 0) {
+      seen.add(key);
       merged.push(p);
     }
   };
 
-  // Locales primero (tienen prioridad)
   localProducts.forEach(push);
 
-  // Externos: solo los que tienen descuento real
-  externalResults.forEach((r) => {
-    if (r.status !== 'fulfilled') return;
-    const items = Array.isArray(r.value) ? r.value : [];
-    items.filter((p) => (p.discount || 0) > minDiscount).forEach(push);
-  });
+  // 2. Cyberpuerta como complemento (único scraper funcional)
+  try {
+    const cyberpuerta = require('../../providers/cyberpuerta.provider');
+    const queries = ['laptop oferta', 'gpu descuento', 'monitor oferta', 'ssd descuento'];
+    const results = await Promise.allSettled(
+      queries.map((q) => cyberpuerta.search({ q, perPage: 15 }))
+    );
+    results.forEach((r) => {
+      if (r.status !== 'fulfilled') return;
+      (r.value || [])
+        .filter((p) => (p.discount || 0) > minDiscount)
+        .forEach(push);
+    });
+  } catch (_) {}
 
+  // Ordenar
   const sorted =
     sort === 'price'
       ? merged.sort((a, b) => a.price - b.price)

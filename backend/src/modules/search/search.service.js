@@ -2,73 +2,101 @@
 const Product = require('../products/product.model');
 const { normalizeProduct } = require('./search.normalizer');
 const { cacheService } = require('../../cache/cache.service');
-const AppError = require('../../shared/utils/AppError');
+const Category = require('../categories/category.model');
 
 const escapeRegex = (text = '') => text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-
-const Category = require('../categories/category.model');
 
 exports.searchProducts = async ({ q = '', category, minPrice, maxPrice, provider, page = 1, perPage = 25 }) => {
   const cacheKey = `search:${q}:${category || ''}:${minPrice || ''}:${maxPrice || ''}:${provider || ''}:page${page}:per${perPage}`;
   const cached = cacheService.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
+  if (cached) return cached;
 
-  // Resolve category if frontend sent a category _id
+  const pageNum    = Math.max(1, Number(page));
+  const perPageNum = Math.min(Number(perPage) || 25, 100);
+
+  // Resolver categoría si viene como ObjectId
   let categoryName = category;
   try {
     const mongoose = require('mongoose');
     if (category && mongoose.Types.ObjectId.isValid(category)) {
       const catDoc = await Category.findById(category).lean();
-      if (catDoc && catDoc.name) categoryName = catDoc.name;
+      if (catDoc?.name) categoryName = catDoc.name;
     }
-  } catch (err) {
-    // ignore resolution errors and use provided category as-is
-    categoryName = category;
-  }
+  } catch (_) {}
 
-  const normalizeAndFilter = (items) => items
-    .map(normalizeProduct)
-    .filter((item) => {
-      let keep = true;
-      if (categoryName) keep = keep && item.category?.toLowerCase() === String(categoryName).toLowerCase();
-      if (minPrice) keep = keep && item.price >= Number(minPrice);
-      if (maxPrice) keep = keep && item.price <= Number(maxPrice);
-      return keep;
+  const applyFilters = (items) =>
+    items.filter((item) => {
+      if (categoryName && item.category?.toLowerCase() !== categoryName.toLowerCase()) return false;
+      if (minPrice && item.price < Number(minPrice)) return false;
+      if (maxPrice && item.price > Number(maxPrice)) return false;
+      return true;
     });
 
-  const buildUniqueResults = (items) => {
-    const seenIds = new Set();
+  const dedupe = (items) => {
+    const seen = new Set();
     return items.filter((item) => {
-      const id = item.id || item._id || `${item.title}-${item.price}`;
-      if (seenIds.has(id)) return false;
-      seenIds.add(id);
+      const key = String(item.id || item._id || `${item.title}-${item.price}`);
+      if (seen.has(key)) return false;
+      seen.add(key);
       return true;
     });
   };
 
-  if (q.trim()) {
-    // Prefer real-time external provider results only. Do not include local example products
-    // in normal search responses to avoid showing seeded/mock data.
-    const pageNum = Number(page || 1);
-    const perPageNum = Number(perPage || 25);
-    const externalProducts = await providers.searchAll({ q, category: categoryName, provider, page: pageNum, perPage: perPageNum });
-    const externalNormalized = normalizeAndFilter(externalProducts);
-
-    const sorted = externalNormalized.sort((a, b) => a.price - b.price);
-    const limited = sorted.slice(0, perPageNum);
-    cacheService.set(cacheKey, limited, 30);
-    // indicate if there may be more results by comparing returned count to perPage
-    return { items: limited, meta: { page: pageNum, perPage: perPageNum, hasMore: externalNormalized.length >= perPageNum } };
+  // Sin query: devolver todos los locales con filtros
+  if (!q.trim()) {
+    const mongoFilter = {};
+    if (categoryName) mongoFilter.category = new RegExp(`^${escapeRegex(categoryName)}$`, 'i');
+    if (minPrice || maxPrice) {
+      mongoFilter.price = {};
+      if (minPrice) mongoFilter.price.$gte = Number(minPrice);
+      if (maxPrice) mongoFilter.price.$lte = Number(maxPrice);
+    }
+    const mongoProducts = await Product.find(mongoFilter).sort({ price: 1 }).limit(perPageNum).lean();
+    const result = mongoProducts.map(normalizeProduct);
+    cacheService.set(cacheKey, result, 30);
+    return { items: result, meta: { page: pageNum, perPage: perPageNum, hasMore: false, source: 'local' } };
   }
 
-  const localProducts = await Product.find({})
-    .sort({ price: 1 })
-    .limit(25)
-    .lean();
+  // Con query: buscar en MongoDB primero
+  const regex = new RegExp(escapeRegex(q.trim()), 'i');
+  const mongoFilter = {
+    $or: [{ title: regex }, { description: regex }, { category: regex }],
+  };
+  if (categoryName) mongoFilter.category = new RegExp(`^${escapeRegex(categoryName)}$`, 'i');
+  if (minPrice || maxPrice) {
+    mongoFilter.price = {};
+    if (minPrice) mongoFilter.price.$gte = Number(minPrice);
+    if (maxPrice) mongoFilter.price.$lte = Number(maxPrice);
+  }
+  if (provider) mongoFilter.provider = new RegExp(`^${escapeRegex(provider)}$`, 'i');
 
-  const localNormalized = normalizeAndFilter(localProducts);
-  cacheService.set(cacheKey, localNormalized, 30);
-  return localNormalized;
+  const mongoProducts = await Product.find(mongoFilter).sort({ price: 1 }).lean();
+  const localItems = mongoProducts.map(normalizeProduct);
+
+  // Cyberpuerta como complemento (único scraper funcional)
+  let externalItems = [];
+  try {
+    const cyberpuerta = require('../../providers/cyberpuerta.provider');
+    const raw = await cyberpuerta.search({ q, category: categoryName, page: pageNum, perPage: perPageNum });
+    externalItems = applyFilters((raw || []).map(normalizeProduct));
+  } catch (_) {}
+
+  // Merge: locales primero, externos como complemento
+  const merged   = dedupe([...localItems, ...externalItems]);
+  const sorted   = merged.sort((a, b) => a.price - b.price);
+  const paginated = sorted.slice((pageNum - 1) * perPageNum, pageNum * perPageNum);
+
+  const result = {
+    items: paginated,
+    meta: {
+      page: pageNum,
+      perPage: perPageNum,
+      hasMore: sorted.length > pageNum * perPageNum,
+      total: sorted.length,
+      source: localItems.length > 0 ? 'local+scraping' : 'scraping',
+    },
+  };
+
+  cacheService.set(cacheKey, result, 30);
+  return result;
 };
