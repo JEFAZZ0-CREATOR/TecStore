@@ -1,5 +1,5 @@
-// backend/src/modules/deals/deals.service.js
 const providers = require('../../providers');
+const Product = require('../products/product.model');
 
 const DEAL_QUERIES = [
   'laptop oferta',
@@ -12,7 +12,7 @@ const DEAL_QUERIES = [
 ];
 
 const normalize = (raw) => ({
-  id: raw.id || raw._id || `${raw.title}-${raw.price}`,
+  id: String(raw.id || raw._id || `${raw.title}-${raw.price}`),
   title: raw.title,
   name: raw.title,
   description: raw.description || raw.title || '',
@@ -39,35 +39,48 @@ exports.getDeals = async ({ minDiscount = 0, sort = 'discount', limit = 60 } = {
   const cacheKey = `deals:${minDiscount}:${sort}:${limit}`;
   if (cache.has(cacheKey)) return cache.get(cacheKey);
 
-  const results = await Promise.allSettled(
+  // 1. Productos locales con descuento (rápido, siempre disponible)
+  const localProducts = await Product.find({ discount: { $gt: minDiscount } })
+    .sort({ discount: -1 })
+    .limit(50)
+    .lean();
+
+  // 2. Providers externos en paralelo
+  const externalResults = await Promise.allSettled(
     DEAL_QUERIES.map((q) => providers.searchAll({ q, perPage: 20 }))
   );
 
   const seen = new Set();
   const merged = [];
 
-  results.forEach((r) => {
+  const push = (raw) => {
+    const p = normalize(raw);
+    if (!seen.has(p.id) && p.price > 0) {
+      seen.add(p.id);
+      merged.push(p);
+    }
+  };
+
+  // Locales primero (tienen prioridad)
+  localProducts.forEach(push);
+
+  // Externos: solo los que tienen descuento real
+  externalResults.forEach((r) => {
     if (r.status !== 'fulfilled') return;
     const items = Array.isArray(r.value) ? r.value : [];
-    items.forEach((raw) => {
-      const p = normalize(raw);
-      const key = p.id;
-      if (!seen.has(key) && p.price > 0) {
-        seen.add(key);
-        merged.push(p);
-      }
-    });
+    items.filter((p) => (p.discount || 0) > minDiscount).forEach(push);
   });
 
   const sorted =
     sort === 'price'
       ? merged.sort((a, b) => a.price - b.price)
       : sort === 'savings'
-      ? merged.sort((a, b) => (b.originalPrice - b.price || 0) - (a.originalPrice - a.price || 0))
+      ? merged.sort((a, b) =>
+          ((b.originalPrice || b.price) - b.price) - ((a.originalPrice || a.price) - a.price)
+        )
       : merged.sort((a, b) => (b.discount || 0) - (a.discount || 0));
 
   const result = sorted.slice(0, limit);
-
   cache.set(cacheKey, result);
   setTimeout(() => cache.delete(cacheKey), 60_000);
 
