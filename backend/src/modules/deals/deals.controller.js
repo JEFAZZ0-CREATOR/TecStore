@@ -1,5 +1,5 @@
 const { asyncHandler } = require('../../shared/utils/asyncHandler');
-const {dealsService} = require('./deals.service');
+const dealsService = require('./deals.service');
 
 exports.getDeals = asyncHandler(async (req, res) => {
   const { minDiscount = 0, sort = 'discount', limit = 60 } = req.query;
@@ -14,11 +14,7 @@ exports.getDeals = asyncHandler(async (req, res) => {
     status: 'success',
     data: {
       items: deals,
-      meta: {
-        total: deals.length,
-        minDiscount: Number(minDiscount),
-        sort,
-      },
+      meta: { total: deals.length, minDiscount: Number(minDiscount), sort },
     },
   });
 });

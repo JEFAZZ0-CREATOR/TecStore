@@ -1,9 +1,6 @@
+// backend/src/modules/deals/deals.service.js
 const providers = require('../../providers');
-const Product = require('../products/product.model');
-const { normalizeProduct } = require('../search/search.normalizer');
-const { cacheService } = require('../../cache/cache.service');
 
-// Queries específicas que regresan productos con descuento real en los providers
 const DEAL_QUERIES = [
   'laptop oferta',
   'gpu descuento',
@@ -14,64 +11,65 @@ const DEAL_QUERIES = [
   'teclado mouse gamer descuento',
 ];
 
+const normalize = (raw) => ({
+  id: raw.id || raw._id || `${raw.title}-${raw.price}`,
+  title: raw.title,
+  name: raw.title,
+  description: raw.description || raw.title || '',
+  provider: raw.provider,
+  image: raw.image || raw.thumbnail || '',
+  price: raw.price || 0,
+  originalPrice: raw.originalPrice || null,
+  discount:
+    raw.discount ||
+    (raw.originalPrice && raw.price
+      ? Math.round(((raw.originalPrice - raw.price) / raw.originalPrice) * 100)
+      : 0),
+  rating: raw.rating || 0,
+  available: raw.available ?? true,
+  url: raw.url,
+  category: raw.category || 'componentes',
+  specs: raw.specs || {},
+  source: raw.source || 'external',
+});
+
+const cache = new Map();
+
 exports.getDeals = async ({ minDiscount = 0, sort = 'discount', limit = 60 } = {}) => {
-  const cacheKey = `deals:min${minDiscount}:sort${sort}:lim${limit}`;
-  const cached = cacheService.get(cacheKey);
-  if (cached) return cached;
+  const cacheKey = `deals:${minDiscount}:${sort}:${limit}`;
+  if (cache.has(cacheKey)) return cache.get(cacheKey);
 
-  // 1. Productos locales con descuento
-  const localProducts = await Product.find({ discount: { $gt: minDiscount } })
-    .sort({ discount: -1 })
-    .limit(50)
-    .lean();
-
-  // 2. Resultados externos de múltiples queries en paralelo
-  const externalResults = await Promise.allSettled(
-    DEAL_QUERIES.map((q) =>
-      providers.searchAll({ q, perPage: 20 })
-    )
+  const results = await Promise.allSettled(
+    DEAL_QUERIES.map((q) => providers.searchAll({ q, perPage: 20 }))
   );
 
   const seen = new Set();
   const merged = [];
 
-  const push = (item) => {
-    const key = item.id || item._id || item.externalId || `${item.title}-${item.price}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    merged.push(item);
-  };
-
-  // Locales primero
-  localProducts.map(normalizeProduct).forEach(push);
-
-  // Externos: solo los que tienen discount > 0 real
-  externalResults.forEach((r) => {
+  results.forEach((r) => {
     if (r.status !== 'fulfilled') return;
     const items = Array.isArray(r.value) ? r.value : [];
-    items
-      .map(normalizeProduct)
-      .filter((p) => (p.discount || 0) > minDiscount && p.price > 0)
-      .forEach(push);
+    items.forEach((raw) => {
+      const p = normalize(raw);
+      const key = p.id;
+      if (!seen.has(key) && p.price > 0) {
+        seen.add(key);
+        merged.push(p);
+      }
+    });
   });
 
-  // Ordenar
-  let sorted;
-  if (sort === 'discount') {
-    sorted = merged.sort((a, b) => (b.discount || 0) - (a.discount || 0));
-  } else if (sort === 'savings') {
-    sorted = merged.sort(
-      (a, b) =>
-        ((b.originalPrice || b.price) - b.price) -
-        ((a.originalPrice || a.price) - a.price)
-    );
-  } else if (sort === 'price') {
-    sorted = merged.sort((a, b) => a.price - b.price);
-  } else {
-    sorted = merged;
-  }
+  const sorted =
+    sort === 'price'
+      ? merged.sort((a, b) => a.price - b.price)
+      : sort === 'savings'
+      ? merged.sort((a, b) => (b.originalPrice - b.price || 0) - (a.originalPrice - a.price || 0))
+      : merged.sort((a, b) => (b.discount || 0) - (a.discount || 0));
 
   const result = sorted.slice(0, limit);
-  cacheService.set(cacheKey, result, 60); // cache 60 segundos
+
+  cache.set(cacheKey, result);
+  setTimeout(() => cache.delete(cacheKey), 60_000);
+
   return result;
 };

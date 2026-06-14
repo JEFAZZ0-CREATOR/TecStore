@@ -225,14 +225,11 @@ export default function Home() {
         </div>
         <div className="relative z-10">
           <h2 className="text-3xl font-bold mb-4">
-            ¿Aún no tienes cuenta?
+            Comienza tu experiencia de compra inteligente en TecStore
           </h2>
           <p className="text-lg mb-6 opacity-90">
-            Regístrate ahora y obtén 10% de descuento en tu primera compra
+            Descubre las mejores ofertas de hardware para PC, compara precios en tiempo real y ahorra en cada compra.
           </p>
-          <Button variant="secondary" size="lg">
-            Crear Cuenta
-          </Button>
         </div>
       </motion.section>
     </div>
