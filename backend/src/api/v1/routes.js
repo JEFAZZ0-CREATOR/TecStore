@@ -11,6 +11,7 @@ const paymentRoutes = require('../../modules/payments/payment.routes');
 const purchaseRoutes = require('../../modules/purchases/purchase.routes');
 const priceHistoryRoutes = require('../../modules/price-history/priceHistory.routes');
 const adminRoutes = require('../../modules/admin/admin.routes');
+const dealsRoutes = require('../../modules/deals/deals.routes');
 
 module.exports = (router) => {
   router.use('/auth', authRoutes);
@@ -26,4 +27,5 @@ module.exports = (router) => {
   router.use('/purchases', purchaseRoutes);
   router.use('/price-history', priceHistoryRoutes);
   router.use('/admin', adminRoutes);
+  router.use('/deals', dealsRoutes);
 };

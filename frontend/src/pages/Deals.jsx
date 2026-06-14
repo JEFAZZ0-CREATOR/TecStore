@@ -5,7 +5,7 @@ import {
   FiStar, FiShoppingCart, FiHeart, FiExternalLink,
   FiRefreshCw, FiTag, FiPercent,
 } from 'react-icons/fi'
-import { searchAPI, productsAPI } from '../services/api'
+import { dealsAPI } from '../services/api'
 import { useCartStore } from '../store/store'
 import { useFavorites } from '../hooks/useFavorites'
 import { ProductGrid } from '../components/product/ProductCard'
@@ -201,36 +201,8 @@ export default function Deals() {
   const loadDeals = async (isRefresh = false) => {
     try {
       isRefresh ? setRefreshing(true) : setLoading(true)
-
-      // 1. Local DB deals (always available, fast)
-      const localRaw = await productsAPI.getAll({ hasDiscount: 'true', sort: 'discount', limit: 50 })
-      const localItems = Array.isArray(localRaw) ? localRaw : []
-
-      // 2. External provider deals (live data, may be slower)
-      const externalResults = await Promise.allSettled(
-        DEAL_QUERIES.map(q => searchAPI.search(q, { perPage: 30 }))
-      )
-
-      // Merge + deduplicate
-      const seen = new Set()
-      const merged = []
-
-      const addItem_ = (p) => {
-        const key = p.id || p._id || p.externalId || `${p.title}-${p.price}`
-        if (!seen.has(key)) {
-          seen.add(key)
-          merged.push(p)
-        }
-      }
-
-      localItems.forEach(addItem_)
-      externalResults.forEach(r => {
-        if (r.status !== 'fulfilled') return
-        const items = Array.isArray(r.value) ? r.value : (r.value.items || [])
-        items.forEach(addItem_)
-      })
-
-      setAllProducts(merged)
+      const items = await dealsAPI.getDeals({ limit: 80 })
+      setAllProducts(Array.isArray(items) ? items : [])
     } catch (err) {
       console.error('Error loading deals:', err)
     } finally {

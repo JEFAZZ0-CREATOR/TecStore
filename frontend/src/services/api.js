@@ -128,6 +128,15 @@ export const priceHistoryAPI = {
   getHistory: (identifier) => API.get(`/price-history/${encodeURIComponent(identifier)}`).then(unwrapResponse),
 }
 
+// DEALS ENDPOINTS
+export const dealsAPI = {
+  getDeals: (params = {}) =>
+    API.get('/deals', { params }).then((r) => {
+      const payload = r.data?.data;
+      return payload?.items ?? payload ?? [];
+    }),
+};
+
 // PURCHASE HISTORY ENDPOINTS
 export const purchasesAPI = {
   register: (payload) => API.post('/purchases', payload).then(unwrapResponse),
@@ -136,4 +145,4 @@ export const purchasesAPI = {
   getStats: () => API.get('/purchases/stats').then(unwrapResponse),
 }
 
-export default API
+export default API;
