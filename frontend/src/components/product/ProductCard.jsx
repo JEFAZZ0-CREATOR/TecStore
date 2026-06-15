@@ -252,34 +252,42 @@ export const ProductCard = ({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: isHovered ? 1 : 0 }}
-            className="absolute inset-0 bg-black/70 flex items-center justify-center gap-2 flex-wrap p-3"
+            className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2 p-3"
           >
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.9 }}
-              onClick={handleAddCart}
-              className="btn-primary flex items-center gap-2 text-sm"
-            >
-              <FiShoppingCart size={14} /> Carrito
-            </motion.button>
-            {externalUrl && (
+            <div className="flex flex-col gap-2 w-full max-w-[160px]">
               <motion.button
                 type="button"
                 whileTap={{ scale: 0.9 }}
-                onClick={openExternal}
-                className="btn-secondary flex items-center gap-2 text-sm"
+                onClick={handleAddCart}
+                className="btn-primary flex items-center justify-center gap-2 text-sm w-full"
               >
-                <FiExternalLink size={14} /> Tienda
+                <FiShoppingCart size={14} /> Carrito
               </motion.button>
-            )}
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.9 }}
-              onClick={handleToggleFavorite}
-              className={`btn-icon ${isFavorite ? "text-danger" : "text-white"}`}
-            >
-              <FiHeart size={20} fill={isFavorite ? "currentColor" : "none"} />
-            </motion.button>
+
+              {externalUrl && (
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.9 }}
+                  onClick={openExternal}
+                  className="btn-secondary flex items-center justify-center gap-2 text-sm w-full"
+                >
+                  <FiExternalLink size={14} /> Tienda
+                </motion.button>
+              )}
+
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.9 }}
+                onClick={handleToggleFavorite}
+                className={`btn-icon w-full flex items-center justify-center gap-2 text-sm ${isFavorite ? "text-danger" : "text-white hover:text-danger"} transition-colors`}
+              >
+                <FiHeart
+                  size={18}
+                  fill={isFavorite ? "currentColor" : "none"}
+                />
+                <span>Favorito</span>
+              </motion.button>
+            </div>
           </motion.div>
         </ContentWrapper>
 
